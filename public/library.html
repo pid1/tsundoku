@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library - tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/library.html">tsundoku</a>
+  <nav>
+    <a href="/library.html">Library</a>
+    <a href="/upload.html">Upload</a>
+    <a href="/admin.html" data-admin-only>Admin</a>
+    <a href="/help.html">Help</a>
+    <a href="#" id="signout">Sign out (<span id="who"></span>)</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Library</h1>
+  <div id="msg" class="msg" hidden></div>
+
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="Search title, author, series or subject" autocomplete="off">
+    <select id="sort">
+      <option value="added">Recently added</option>
+      <option value="title">Title</option>
+      <option value="series">Series</option>
+    </select>
+    <button class="secondary" id="prev">Previous</button>
+    <button class="secondary" id="next">Next</button>
+  </div>
+
+  <p class="muted" id="count" style="font-size:0.85rem"></p>
+  <div class="grid" id="grid"></div>
+</main>
+
+<dialog id="editor">
+  <form method="dialog" id="editForm">
+    <h2 style="margin-top:0">Edit metadata</h2>
+    <div id="editMsg" class="msg" hidden></div>
+    <div class="field"><label for="f-title">Title</label><input id="f-title" type="text"></div>
+    <div class="field"><label for="f-authors">Authors (comma separated)</label><input id="f-authors" type="text"></div>
+    <div class="row">
+      <div class="field"><label for="f-series">Series</label><input id="f-series" type="text"></div>
+      <div class="field"><label for="f-index">Number in series</label><input id="f-index" type="number" step="0.1"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="f-publisher">Publisher</label><input id="f-publisher" type="text"></div>
+      <div class="field"><label for="f-published">Published</label><input id="f-published" type="text" placeholder="2015"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="f-language">Language</label><input id="f-language" type="text" placeholder="en"></div>
+      <div class="field"><label for="f-isbn">ISBN</label><input id="f-isbn" type="text"></div>
+    </div>
+    <div class="field"><label for="f-tags">Subjects (comma separated)</label><input id="f-tags" type="text"></div>
+    <div class="field"><label for="f-description">Description</label><textarea id="f-description"></textarea></div>
+    <p class="muted mono" id="f-detail" style="font-size:0.75rem"></p>
+    <div class="row" style="margin-top:1rem">
+      <button type="button" class="secondary" id="reindex">Re-read the file</button>
+      <button type="button" class="danger" id="remove">Delete</button>
+      <button type="button" class="secondary" id="cancel">Cancel</button>
+      <button type="button" id="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { api, el, formatBytes, formatDate, mountChrome, showMessage } from "/app.js";
+
+await mountChrome();
+
+const state = { page: 1, q: "", sort: "added", total: 0, pageSize: 50 };
+const grid = document.getElementById("grid");
+const editor = document.getElementById("editor");
+let editing = null;
+
+function params() {
+  const p = new URLSearchParams({ page: String(state.page), sort: state.sort });
+  if (state.q) p.set("q", state.q);
+  return p.toString();
+}
+
+async function load() {
+  showMessage("msg", "");
+  try {
+    const result = await api(`/api/books?${params()}`);
+    state.total = result.total;
+    state.pageSize = result.pageSize;
+    render(result.items);
+    const from = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
+    const to = Math.min(result.total, result.page * result.pageSize);
+    document.getElementById("count").textContent =
+      result.total === 0 ? "Nothing here yet. Upload something." : `${from}-${to} of ${result.total}`;
+    document.getElementById("prev").disabled = result.page <= 1;
+    document.getElementById("next").disabled = to >= result.total;
+  } catch (error) {
+    showMessage("msg", error.message);
+  }
+}
+
+function render(books) {
+  grid.replaceChildren(
+    ...books.map((book) => {
+      const cover = el("div", {
+        class: "cover",
+        style: book.cover_key ? `background-image:url('/covers/${book.cover_key.replace(/^covers\//, "")}')` : "",
+        title: "Edit metadata",
+      });
+      if (!book.cover_key) cover.textContent = book.title;
+
+      const card = el(
+        "div",
+        { class: "card" },
+        cover,
+        el("a", { class: "t", href: `/content/${book.id}/${encodeURIComponent(book.filename)}`, text: book.title }),
+        el("div", { class: "a", text: book.authors.join(", ") || "Unknown author" }),
+        el(
+          "div",
+          { class: "meta" },
+          book.series ? `${book.series}${book.series_index !== null ? ` #${book.series_index}` : ""} - ` : "",
+          `${book.format.toUpperCase()} - ${formatBytes(book.byte_size)} - ${formatDate(book.added_at)}`,
+        ),
+        book.index_error ? el("div", { class: "meta", style: "color:var(--danger)", text: book.index_error }) : null,
+      );
+      cover.addEventListener("click", () => openEditor(book));
+      return card;
+    }),
+  );
+}
+
+function openEditor(book) {
+  editing = book;
+  showMessage("editMsg", "");
+  const set = (id, value) => { document.getElementById(id).value = value ?? ""; };
+  set("f-title", book.title);
+  set("f-authors", book.authors.join(", "));
+  set("f-series", book.series);
+  set("f-index", book.series_index);
+  set("f-publisher", book.publisher);
+  set("f-published", book.published);
+  set("f-language", book.language);
+  set("f-isbn", book.isbn);
+  set("f-tags", book.tags.join(", "));
+  set("f-description", book.description);
+  document.getElementById("f-detail").textContent =
+    `${book.filename} - ${formatBytes(book.byte_size)} - koreader hash ${book.partial_md5 || "not computed"}`;
+  editor.showModal();
+}
+
+const list = (value) => value.split(",").map((s) => s.trim()).filter(Boolean);
+
+document.getElementById("save").addEventListener("click", async () => {
+  const value = (id) => document.getElementById(id).value.trim();
+  try {
+    await api(`/api/books/${editing.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title: value("f-title"),
+        series: value("f-series") || null,
+        series_index: value("f-index") === "" ? null : Number(value("f-index")),
+        publisher: value("f-publisher") || null,
+        published: value("f-published") || null,
+        language: value("f-language") || null,
+        isbn: value("f-isbn") || null,
+        description: value("f-description") || null,
+        authors: list(value("f-authors")),
+        tags: list(value("f-tags")),
+      }),
+    });
+    editor.close();
+    await load();
+  } catch (error) {
+    showMessage("editMsg", error.message);
+  }
+});
+
+document.getElementById("reindex").addEventListener("click", async () => {
+  try {
+    const result = await api(`/api/books/${editing.id}/index`, { method: "POST" });
+    showMessage("editMsg", result.ok ? "Re-read from the file." : result.error, result.ok ? "ok" : "error");
+    await load();
+  } catch (error) {
+    showMessage("editMsg", error.message);
+  }
+});
+
+document.getElementById("remove").addEventListener("click", async () => {
+  if (!confirm(`Delete "${editing.title}"? The file is removed from R2 and cannot be recovered.`)) return;
+  try {
+    await api(`/api/books/${editing.id}`, { method: "DELETE" });
+    editor.close();
+    await load();
+  } catch (error) {
+    showMessage("editMsg", error.message);
+  }
+});
+
+document.getElementById("cancel").addEventListener("click", () => editor.close());
+
+let debounce;
+document.getElementById("q").addEventListener("input", (event) => {
+  clearTimeout(debounce);
+  debounce = setTimeout(() => { state.q = event.target.value.trim(); state.page = 1; load(); }, 250);
+});
+document.getElementById("sort").addEventListener("change", (event) => {
+  state.sort = event.target.value;
+  state.page = 1;
+  load();
+});
+document.getElementById("prev").addEventListener("click", () => { state.page = Math.max(1, state.page - 1); load(); });
+document.getElementById("next").addEventListener("click", () => { state.page += 1; load(); });
+
+await load();
+</script>
+</body>
+</html>

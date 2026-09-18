@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The suite runs inside workerd via @cloudflare/vitest-pool-workers, so it
+      # needs no Cloudflare account and no secrets. Deploy is deliberately not
+      # wired up here: it would need an API token with write access to the
+      # account, and this repo is public.
+      - name: Test
+        run: npm test

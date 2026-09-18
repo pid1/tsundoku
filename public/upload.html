@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upload - tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/library.html">tsundoku</a>
+  <nav>
+    <a href="/library.html">Library</a>
+    <a href="/upload.html">Upload</a>
+    <a href="/admin.html" data-admin-only>Admin</a>
+    <a href="/help.html">Help</a>
+    <a href="#" id="signout">Sign out (<span id="who"></span>)</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Upload</h1>
+  <div id="msg" class="msg" hidden></div>
+
+  <div class="dropzone" id="drop" tabindex="0" role="button">
+    <strong>Drop books here</strong><br>
+    <span class="muted">or click to choose files. EPUB and CBZ get metadata and a cover read out of the file itself.</span>
+    <input id="picker" type="file" multiple hidden
+           accept=".epub,.cbz,.pdf,.mobi,.azw3,.fb2,.txt,application/epub+zip">
+  </div>
+
+  <ul class="queue" id="queue"></ul>
+</main>
+
+<script type="module">
+import { api, el, formatBytes, mountChrome, showMessage } from "/app.js";
+
+await mountChrome();
+
+// Anything over this goes through R2 multipart: the Workers request body limit
+// is 100MB, so a single-shot PUT of a large comic would be rejected outright.
+const SINGLE_SHOT_LIMIT = 95 * 1024 * 1024;
+const PART_SIZE = 50 * 1024 * 1024;
+
+const drop = document.getElementById("drop");
+const picker = document.getElementById("picker");
+const queue = document.getElementById("queue");
+
+drop.addEventListener("click", () => picker.click());
+drop.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") { event.preventDefault(); picker.click(); }
+});
+picker.addEventListener("change", () => { enqueue([...picker.files]); picker.value = ""; });
+
+for (const type of ["dragenter", "dragover"]) {
+  drop.addEventListener(type, (event) => { event.preventDefault(); drop.classList.add("hot"); });
+}
+for (const type of ["dragleave", "drop"]) {
+  drop.addEventListener(type, (event) => { event.preventDefault(); drop.classList.remove("hot"); });
+}
+drop.addEventListener("drop", (event) => enqueue([...(event.dataTransfer?.files ?? [])]));
+
+async function enqueue(files) {
+  for (const file of files) {
+    const row = makeRow(file);
+    queue.prepend(row.li);
+    try {
+      const result = file.size > SINGLE_SHOT_LIMIT ? await multipart(file, row) : await singleShot(file, row);
+      const note = result.index && result.index.error ? ` (${result.index.error})` : "";
+      row.done(`Added as "${(result.index && result.index.title) || file.name}"${note}`, !note);
+    } catch (error) {
+      if (error.status === 409) row.done(`Already in the library: "${error.body.title}"`, true);
+      else row.done(error.message, false);
+    }
+  }
+}
+
+function makeRow(file) {
+  const state = el("div", { class: "state", text: "Waiting" });
+  const fill = el("i");
+  const li = el(
+    "li",
+    {},
+    el("div", {}, el("strong", { text: file.name }), " ", el("span", { class: "muted", text: formatBytes(file.size) })),
+    el("div", { class: "bar" }, fill),
+    state,
+  );
+  return {
+    li,
+    progress(fraction, label) {
+      fill.style.width = `${Math.round(fraction * 100)}%`;
+      state.textContent = label;
+    },
+    done(label, ok) {
+      fill.style.width = "100%";
+      state.textContent = label;
+      state.className = `state ${ok ? "ok" : "error"}`;
+    },
+  };
+}
+
+function singleShot(file, row) {
+  // XMLHttpRequest rather than fetch, purely for upload progress events.
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", "/api/books");
+    request.setRequestHeader("x-filename", encodeURIComponent(file.name));
+    request.setRequestHeader("content-type", file.type || "application/octet-stream");
+    request.withCredentials = true;
+
+    request.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) row.progress(event.loaded / event.total, `Uploading ${formatBytes(event.loaded)}`);
+    });
+    request.addEventListener("load", () => {
+      let body = null;
+      try { body = JSON.parse(request.responseText); } catch { body = {}; }
+      if (request.status >= 200 && request.status < 300) {
+        row.progress(1, "Reading metadata");
+        resolve(body);
+      } else {
+        const error = new Error(body.error || `${request.status}`);
+        error.status = request.status;
+        error.body = body;
+        reject(error);
+      }
+    });
+    request.addEventListener("error", () => reject(new Error("Network error")));
+    request.send(file);
+  });
+}
+
+async function multipart(file, row) {
+  row.progress(0, "Starting multipart upload");
+  const { uploadId } = await api("/api/uploads", {
+    method: "POST",
+    body: JSON.stringify({ filename: file.name }),
+  });
+
+  try {
+    const total = Math.ceil(file.size / PART_SIZE);
+    for (let part = 1; part <= total; part++) {
+      const slice = file.slice((part - 1) * PART_SIZE, Math.min(part * PART_SIZE, file.size));
+      const response = await fetch(`/api/uploads/${uploadId}/${part}`, {
+        method: "PUT",
+        credentials: "same-origin",
+        body: slice,
+      });
+      if (!response.ok) throw new Error(`Part ${part} failed: ${response.status}`);
+      row.progress(part / total, `Uploaded part ${part} of ${total}`);
+    }
+    row.progress(1, "Finishing");
+    return await api(`/api/uploads/${uploadId}/complete`, { method: "POST" });
+  } catch (error) {
+    // Leave no half-finished multipart behind; the nightly sweep is a backstop.
+    await api(`/api/uploads/${uploadId}`, { method: "DELETE" }).catch(() => {});
+    throw error;
+  }
+}
+
+showMessage("msg", "");
+</script>
+</body>
+</html>

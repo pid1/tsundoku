@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="center-page">
+  <div class="panel">
+    <h1 style="margin-bottom:0.25rem">tsundoku</h1>
+    <p class="muted" style="margin-top:0;font-size:0.9rem">Sign in to the library.</p>
+
+    <div id="msg" class="msg" hidden></div>
+
+    <form id="login">
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" id="submit" style="width:100%">Sign in</button>
+    </form>
+
+    <p class="muted" style="font-size:0.8rem;margin-bottom:0">
+      Accounts are created by the administrator. Reader setup is on the
+      <a href="/help.html">help page</a>.
+    </p>
+  </div>
+</div>
+
+<script type="module">
+import { api, showMessage } from "/app.js";
+
+const form = document.getElementById("login");
+const submit = document.getElementById("submit");
+
+// Already signed in? Go straight through.
+api("/api/me").then(() => { location.href = next(); }).catch(() => {});
+
+function next() {
+  const target = new URLSearchParams(location.search).get("next");
+  return target && target.startsWith("/") ? target : "/library.html";
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  submit.disabled = true;
+  showMessage("msg", "");
+  try {
+    await api("/api/session", {
+      method: "POST",
+      body: JSON.stringify({
+        username: document.getElementById("username").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+    location.href = next();
+  } catch (error) {
+    showMessage("msg", error.message);
+    submit.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

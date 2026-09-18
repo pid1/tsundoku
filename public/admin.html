@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin - tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/library.html">tsundoku</a>
+  <nav>
+    <a href="/library.html">Library</a>
+    <a href="/upload.html">Upload</a>
+    <a href="/admin.html">Admin</a>
+    <a href="/help.html">Help</a>
+    <a href="#" id="signout">Sign out (<span id="who"></span>)</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Administration</h1>
+  <div id="msg" class="msg" hidden></div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Storage</h2>
+    <div class="meter"><i id="meter"></i></div>
+    <p class="muted" id="usage" style="font-size:0.85rem"></p>
+    <p class="muted" id="counts" style="font-size:0.85rem;margin-bottom:0"></p>
+  </div>
+
+  <h2>Users</h2>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th></th></tr></thead>
+      <tbody id="users"></tbody>
+    </table>
+
+    <h2>Add a user</h2>
+    <form id="newUser">
+      <div class="row">
+        <div class="field"><label for="n-username">Username</label><input id="n-username" type="text" required></div>
+        <div class="field"><label for="n-name">Display name</label><input id="n-name" type="text"></div>
+        <div class="field">
+          <label for="n-role">Role</label>
+          <select id="n-role"><option value="reader">Reader</option><option value="admin">Administrator</option></select>
+        </div>
+      </div>
+      <p class="muted" style="font-size:0.8rem">
+        A high-entropy password is generated and shown once. It is never stored in
+        recoverable form, so write it down before closing the message.
+      </p>
+      <button type="submit">Create user</button>
+    </form>
+  </div>
+</main>
+
+<script type="module">
+import { api, el, formatBytes, formatDate, mountChrome, showMessage } from "/app.js";
+
+await mountChrome();
+
+async function loadStats() {
+  const s = await api("/api/stats");
+  const fraction = Math.min(1, s.r2UsedFraction);
+  document.getElementById("meter").style.width = `${(fraction * 100).toFixed(1)}%`;
+  document.getElementById("usage").textContent =
+    `${formatBytes(s.bytes)} of ${formatBytes(s.r2FreeTierBytes)} R2 free tier (${(fraction * 100).toFixed(1)}%)`;
+  document.getElementById("counts").textContent =
+    `${s.books} books, ${s.authors} authors, ${s.series} series, ${s.tags} subjects, ${s.users} users` +
+    (s.unindexed ? `, ${s.unindexed} awaiting metadata` : "");
+}
+
+async function loadUsers() {
+  const { users } = await api("/api/users");
+  const body = document.getElementById("users");
+  body.replaceChildren(
+    ...users.map((user) =>
+      el(
+        "tr",
+        {},
+        el("td", { class: "mono", text: user.username }),
+        el("td", { text: user.display_name || "" }),
+        el("td", {}, el("span", { class: "pill", text: user.role })),
+        el("td", { text: user.disabled ? "disabled" : `since ${formatDate(user.created_at)}` }),
+        el(
+          "td",
+          {},
+          el("button", {
+            class: "secondary",
+            text: "Reset password",
+            onclick: () => resetPassword(user),
+          }),
+          " ",
+          el("button", {
+            class: "secondary",
+            text: user.disabled ? "Enable" : "Disable",
+            onclick: () => setDisabled(user, !user.disabled),
+          }),
+          " ",
+          el("button", { class: "danger", text: "Delete", onclick: () => remove(user) }),
+        ),
+      ),
+    ),
+  );
+}
+
+async function resetPassword(user) {
+  if (!confirm(`Issue a new password for ${user.username}? Their current one stops working immediately.`)) return;
+  const result = await api(`/api/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ generatePassword: true }) });
+  showMessage("msg", `New password for ${user.username}: ${result.password} - write it down, it is not shown again.`, "ok");
+}
+
+async function setDisabled(user, disabled) {
+  await api(`/api/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ disabled }) });
+  await loadUsers();
+}
+
+async function remove(user) {
+  if (!confirm(`Delete ${user.username}? Their reading progress goes with them.`)) return;
+  try {
+    await api(`/api/users/${user.id}`, { method: "DELETE" });
+    await loadUsers();
+    await loadStats();
+  } catch (error) {
+    showMessage("msg", error.message);
+  }
+}
+
+document.getElementById("newUser").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  showMessage("msg", "");
+  try {
+    const result = await api("/api/users", {
+      method: "POST",
+      body: JSON.stringify({
+        username: document.getElementById("n-username").value.trim(),
+        displayName: document.getElementById("n-name").value.trim() || null,
+        role: document.getElementById("n-role").value,
+      }),
+    });
+    showMessage("msg", `Created ${result.username}. Password: ${result.password} - write it down, it is not shown again.`, "ok");
+    event.target.reset();
+    await loadUsers();
+    await loadStats();
+  } catch (error) {
+    showMessage("msg", error.message);
+  }
+});
+
+await loadStats();
+await loadUsers();
+</script>
+</body>
+</html>

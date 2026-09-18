@@ -1,0 +1,31 @@
+{
+  "name": "tsundoku",
+  "version": "0.1.0",
+  "description": "OPDS 1.2 + 2.0 catalog, upload UI and KOReader sync server on one Cloudflare Worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "wrangler d1 migrations apply tsundoku --remote",
+    "db:migrate:local": "wrangler d1 migrations apply tsundoku --local",
+    "db:backup": "./scripts/backup.sh",
+    "setup": "./scripts/setup.sh",
+    "conformance": "node test/conformance/run.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260918.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.135.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260815.1": true,
+    "workerd@1.20260918.1": true
+  }
+}

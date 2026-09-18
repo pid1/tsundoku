@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help - tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/library.html">tsundoku</a>
+  <nav>
+    <a href="/library.html">Library</a>
+    <a href="/upload.html">Upload</a>
+    <a href="/help.html">Help</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Connecting a reader</h1>
+  <p class="muted">
+    Replace <span class="mono">books.example.com</span> below with this server's address.
+    Sign-in is the username and password you were given; there is no self-registration.
+  </p>
+
+  <h2>KOReader &mdash; catalog</h2>
+  <ol>
+    <li><strong>Search</strong> &rarr; <strong>OPDS catalog</strong> &rarr; <strong>+</strong></li>
+    <li>Title: <span class="mono">tsundoku</span></li>
+    <li>URL: <span class="mono">https://books.example.com/opds/1.2</span></li>
+    <li>Fill in your username and password.</li>
+  </ol>
+  <p class="muted">Long-press a book to download it.</p>
+
+  <h2>KOReader &mdash; progress sync</h2>
+  <ol>
+    <li><strong>Tools</strong> &rarr; <strong>More tools</strong> &rarr; <strong>Progress sync</strong></li>
+    <li><strong>Custom sync server</strong>: <span class="mono">https://books.example.com</span>
+        &mdash; the base address, with no path after it.</li>
+    <li>Choose <strong>Login</strong>, not Register. Registration is disabled and answers 403.</li>
+    <li>Set <strong>Document matching method</strong> the same on every device.
+        <span class="mono">binary</span> is the default and the right choice; <span class="mono">filename</span>
+        breaks as soon as you rename a file.</li>
+    <li>Turn on <strong>Send document metadata</strong> if you want titles to appear
+        beside positions in the web UI.</li>
+  </ol>
+
+  <h2>Thorium Reader</h2>
+  <p>
+    <strong>Catalogs</strong> &rarr; <strong>Add catalog</strong> &rarr;
+    <span class="mono">https://books.example.com/opds/2.0</span>. Thorium speaks OPDS 2.0,
+    so give it the JSON feed.
+  </p>
+
+  <h2>Everything else</h2>
+  <p>
+    FBReader, Moon+ Reader, PocketBook, Panels and Aldiko all speak OPDS 1.2. Give them
+    <span class="mono">https://books.example.com/opds/1.2</span> with the same credentials.
+  </p>
+
+  <h2>Checking it by hand</h2>
+  <pre class="mono" style="white-space:pre-wrap">curl -u you:secret https://books.example.com/opds/1.2
+curl -u you:secret -H 'Accept: application/opds+json' https://books.example.com/opds/2.0/new
+curl https://books.example.com/healthcheck</pre>
+</main>
+</body>
+</html>

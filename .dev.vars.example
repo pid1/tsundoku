@@ -1,0 +1,14 @@
+# Copy to .dev.vars for `wrangler dev`. NEVER commit .dev.vars.
+# In production these are set with `wrangler secret put <NAME>`.
+
+# Keyed-hash pepper for credential verifiers. Rotating this invalidates every
+# stored password. Generate with: openssl rand -base64 32
+PEPPER="dev-only-pepper-do-not-use-in-production"
+
+# HMAC key for session cookies. Rotating this logs everyone out.
+SESSION_KEY="dev-only-session-key-do-not-use-in-production"
+
+# Seeds the first admin user on first request, only while the users table is
+# empty. Changing these later does NOT change the password -- use the admin UI.
+ADMIN_USERNAME="admin"
+ADMIN_PASSWORD="change-me-before-you-deploy"

@@ -1,0 +1,42 @@
+name = "tsundoku"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# The UI shell is served as static assets. Requests that match a file in
+# ./public are served WITHOUT invoking the Worker, and do not count against the
+# free plan's 100,000 requests/day. Everything else falls through to src/index.ts.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+
+[[r2_buckets]]
+binding = "BOOKS"
+bucket_name = "tsundoku"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tsundoku"
+# Filled in by `wrangler d1 create tsundoku`, or by scripts/setup.sh.
+database_id = "REPLACE_ME"
+
+# Nightly housekeeping: abort stale multipart uploads, sweep orphans, log usage.
+[triggers]
+crons = ["17 4 * * *"]
+
+[observability]
+enabled = true
+
+[vars]
+CATALOG_TITLE = "tsundoku"
+PAGE_SIZE = "50"
+MAX_UPLOAD_MB = "95"
+# Set to "1" to allow kosync's POST /users/create to register new accounts.
+# Default is closed: accounts are created by an admin in the web UI.
+ALLOW_KOSYNC_REGISTER = "0"
+
+# A custom domain is strongly recommended. Some OPDS clients dislike
+# workers.dev subdomains, and TLS is non-negotiable because auth is HTTP Basic.
+# [[routes]]
+# pattern = "books.example.com"
+# custom_domain = true
