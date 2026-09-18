@@ -8,6 +8,11 @@
 </p>
 
 <p align="center">
+  <img src="docs/screenshots/sync.png" alt="The sync view: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are" width="100%">
+  <br><em>Sync — every device's position on every book, and whether they actually agree.</em>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/admin.png" alt="The administration view: storage against the R2 free tier, the user list, and the form for adding a user" width="100%">
   <br><em>Administration — storage against the free tier, and the closed user set.</em>
 </p>
