@@ -77,6 +77,27 @@ export interface NavEntry {
   count: number;
 }
 
+/** A `progress_devices` row with its book, user and per-book aggregates joined on. */
+export interface DeviceProgressRow {
+  user_id: string;
+  document: string;
+  device_id: string;
+  device: string;
+  percentage: number;
+  progress: string;
+  updated_at: number;
+  username: string;
+  display_name: string | null;
+  book_id: string | null;
+  book_title: string | null;
+  book_format: string | null;
+  metadata: string | null;
+  /** Aggregates over every device holding this (user, document). */
+  furthest_percentage: number;
+  latest_updated_at: number;
+  device_count: number;
+}
+
 export interface ProgressRow {
   user_id: string;
   document: string;

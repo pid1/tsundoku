@@ -193,3 +193,34 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 @media (max-width: 520px) {
   .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
+
+/* ---------------------------------- sync ---------------------------------- */
+
+.pill.ok   { color: var(--ok);     border-color: var(--ok); }
+.pill.warn { color: var(--danger); border-color: var(--danger); }
+
+.sync-book { margin-bottom: 1rem; }
+.sync-book h2 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+
+.sync-head { display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; }
+.sync-sub { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; margin: 0; }
+
+.sync-furthest { text-align: right; white-space: nowrap; }
+.sync-furthest strong { display: block; font-size: 1.25rem; }
+.sync-furthest span { font-size: 0.72rem; }
+
+.sync-link { margin: 0.5rem 0 0; font-size: 0.8rem; }
+.sync-link.mono { overflow-wrap: anywhere; }
+
+.devices { margin-top: 0.85rem; display: grid; gap: 0.7rem; }
+.device { border-top: 1px solid var(--line); padding-top: 0.6rem; }
+.device-head { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-bottom: 0.35rem; }
+.device .meter { margin-bottom: 0.3rem; }
+.device-meta { margin: 0; font-size: 0.78rem; }
+.device-pos { display: block; font-size: 0.7rem; overflow-wrap: anywhere; }
+
+@media (max-width: 520px) {
+  .sync-head { flex-direction: column; gap: 0.4rem; }
+  .sync-furthest { text-align: left; }
+  .sync-furthest strong { display: inline; margin-right: 0.35rem; }
+}

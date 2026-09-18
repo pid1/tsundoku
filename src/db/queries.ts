@@ -1,4 +1,4 @@
-import type { Book, BookView, NavEntry, Page, ProgressRow, User } from "../types.js";
+import type { Book, BookView, DeviceProgressRow, NavEntry, Page, ProgressRow, User } from "../types.js";
 import { nowSeconds, sortAuthor, sortTitle, ulid } from "../util.js";
 
 /* -------------------------------------------------------------------------- */
@@ -512,7 +512,78 @@ export async function putProgress(
     )
     .bind(row.user_id, row.document, row.percentage, row.progress, row.device, row.device_id, row.metadata, ts)
     .run();
+
+  // Same position, kept per device instead of last-writer-wins, so the Sync
+  // page can say which devices agree. Deliberately a second write rather than a
+  // change to `progress`: kosync reads that table and its semantics are the
+  // protocol's, not ours.
+  await db
+    .prepare(
+      `INSERT INTO progress_devices (user_id, document, device_id, device, percentage, progress, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, document, device_id) DO UPDATE SET
+         device     = excluded.device,
+         percentage = excluded.percentage,
+         progress   = excluded.progress,
+         updated_at = excluded.updated_at`,
+    )
+    .bind(row.user_id, row.document, row.device_id, row.device, row.percentage, row.progress, ts)
+    .run();
+
   return ts;
+}
+
+/** Users who have at least one device position, for the Sync page's filter. */
+export async function listSyncUsers(db: D1Database): Promise<{ id: string; label: string }[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT u.id AS id, COALESCE(NULLIF(u.display_name, ''), u.username) AS label
+         FROM progress_devices pd JOIN users u ON u.id = pd.user_id
+        ORDER BY label COLLATE NOCASE`,
+    )
+    .all<{ id: string; label: string }>();
+  return results ?? [];
+}
+
+/**
+ * Every device position, with the book and user it belongs to already attached
+ * and the per-book aggregates computed in SQL.
+ *
+ * The join to `books` matches either partial-MD5 column: which one KOReader
+ * produces is settled (offset 0) but both are stored, and a device that
+ * computed the other one still has to find its book. A row with no book is
+ * kept, not dropped -- a position for something not in the library is exactly
+ * what the page should show, and the kosync metadata carries a usable title.
+ */
+export async function listDeviceProgress(
+  db: D1Database,
+  opts: { userId?: string; limit?: number } = {},
+): Promise<DeviceProgressRow[]> {
+  const limit = opts.limit ?? 500;
+  const where = opts.userId ? "WHERE pd.user_id = ?" : "";
+  const binds: unknown[] = opts.userId ? [opts.userId, limit] : [limit];
+
+  const { results } = await db
+    .prepare(
+      `SELECT pd.user_id, pd.document, pd.device_id, pd.device, pd.percentage, pd.progress, pd.updated_at,
+              u.username, u.display_name,
+              b.id AS book_id, b.title AS book_title, b.format AS book_format,
+              p.metadata AS metadata,
+              MAX(pd.percentage) OVER w AS furthest_percentage,
+              MAX(pd.updated_at) OVER w AS latest_updated_at,
+              COUNT(*)      OVER w AS device_count
+         FROM progress_devices pd
+         JOIN users u ON u.id = pd.user_id
+         LEFT JOIN books b ON b.partial_md5 = pd.document OR b.partial_md5_alt = pd.document
+         LEFT JOIN progress p ON p.user_id = pd.user_id AND p.document = pd.document
+         ${where}
+       WINDOW w AS (PARTITION BY pd.user_id, pd.document)
+        ORDER BY pd.updated_at DESC
+        LIMIT ?`,
+    )
+    .bind(...binds)
+    .all<DeviceProgressRow>();
+  return results ?? [];
 }
 
 export async function listProgress(db: D1Database, userId: string, limit = 200): Promise<ProgressRow[]> {

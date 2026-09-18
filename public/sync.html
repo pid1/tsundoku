@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sync - tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/library.html">tsundoku</a>
+  <nav>
+    <a href="/sync.html">Sync</a>
+    <a href="/library.html">Library</a>
+    <a href="/upload.html">Upload</a>
+    <a href="/admin.html" data-admin-only>Admin</a>
+    <a href="/help.html">Help</a>
+    <a href="#" id="signout">Sign out (<span id="who"></span>)</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Sync</h1>
+  <div id="msg" class="msg" hidden></div>
+
+  <div class="toolbar">
+    <select id="user" hidden aria-label="Filter by user"></select>
+    <select id="status" aria-label="Filter by sync status">
+      <option value="all">All books</option>
+      <option value="diverged">Out of sync</option>
+      <option value="in-sync">In sync</option>
+      <option value="single">One device only</option>
+    </select>
+    <button class="secondary" id="refresh">Refresh</button>
+  </div>
+
+  <p class="muted" id="count" style="font-size:0.85rem"></p>
+  <div id="list"></div>
+</main>
+
+<script type="module">
+import { api, el, formatDate, mountChrome, showMessage } from "/app.js";
+
+const user = await mountChrome();
+
+const listNode = document.getElementById("list");
+const countNode = document.getElementById("count");
+const userSelect = document.getElementById("user");
+const statusSelect = document.getElementById("status");
+
+// The server decides what this account may see; these are only the view's
+// own filters over whatever came back.
+let books = [];
+
+const STATUS_LABEL = {
+  "in-sync": "In sync",
+  diverged: "Out of sync",
+  single: "One device",
+};
+
+function relative(seconds) {
+  if (!seconds) return "never";
+  const delta = Math.floor(Date.now() / 1000) - seconds;
+  if (delta < 90) return "just now";
+  if (delta < 3600) return `${Math.floor(delta / 60)} min ago`;
+  if (delta < 172800) return `${Math.floor(delta / 3600)} hr ago`;
+  return formatDate(seconds);
+}
+
+function deviceRow(device, book) {
+  return el(
+    "div",
+    { class: "device" },
+    el(
+      "div",
+      { class: "device-head" },
+      el("strong", { text: device.device }),
+      device.isFurthest ? el("span", { class: "pill ok", text: "furthest" }) : null,
+      device.isLatest && !device.isFurthest ? el("span", { class: "pill", text: "most recent push" }) : null,
+      !device.isFurthest && book.status === "diverged"
+        ? el("span", { class: "pill warn", text: `${(device.behindBy * 100).toFixed(1)}% behind` })
+        : null,
+    ),
+    el("div", { class: "meter" }, el("i", { style: `width:${Math.round(device.percentage * 100)}%` })),
+    el(
+      "p",
+      { class: "muted device-meta" },
+      `${device.percentLabel} - ${relative(device.updatedAt)}`,
+      device.progress ? el("span", { class: "mono device-pos", text: device.progress }) : null,
+    ),
+  );
+}
+
+function bookCard(book) {
+  return el(
+    "section",
+    { class: "panel sync-book" },
+    el(
+      "div",
+      { class: "sync-head" },
+      el(
+        "div",
+        {},
+        el("h2", { text: book.title }),
+        el(
+          "p",
+          { class: "muted sync-sub" },
+          el("span", { class: "pill", text: book.userLabel }),
+          book.format ? el("span", { class: "pill", text: book.format.toUpperCase() }) : null,
+          el("span", {
+            class: `pill ${book.status === "in-sync" ? "ok" : book.status === "diverged" ? "warn" : ""}`,
+            text: STATUS_LABEL[book.status],
+          }),
+          el("span", { class: "pill", text: `${book.deviceCount} device${book.deviceCount === 1 ? "" : "s"}` }),
+          book.unmatched ? el("span", { class: "pill warn", text: "not in library" }) : null,
+        ),
+      ),
+      el(
+        "div",
+        { class: "sync-furthest" },
+        el("strong", { text: book.furthestLabel }),
+        el("span", { class: "muted", text: "furthest" }),
+      ),
+    ),
+    book.bookId
+      ? el("p", { class: "sync-link" }, el("a", { href: `/library.html#${book.bookId}`, text: "Open in library" }))
+      : el("p", { class: "muted sync-link mono", text: book.document }),
+    el("div", { class: "devices" }, book.devices.map((d) => deviceRow(d, book))),
+  );
+}
+
+function render() {
+  const wanted = statusSelect.value;
+  const shown = wanted === "all" ? books : books.filter((b) => b.status === wanted);
+
+  listNode.replaceChildren(...shown.map(bookCard));
+
+  if (books.length === 0) {
+    countNode.textContent = "No reading positions yet. They appear once a device syncs.";
+  } else {
+    const diverged = books.filter((b) => b.status === "diverged").length;
+    countNode.textContent =
+      `${shown.length} of ${books.length} book${books.length === 1 ? "" : "s"}` +
+      (diverged ? ` - ${diverged} out of sync` : "");
+  }
+}
+
+async function load() {
+  showMessage("msg", "");
+  try {
+    const params = new URLSearchParams();
+    if (userSelect.value) params.set("user", userSelect.value);
+    const data = await api(`/api/sync${params.toString() ? `?${params}` : ""}`);
+
+    books = data.books;
+
+    // The filter exists only for an account allowed to look past itself.
+    if (data.scope.canFilter && data.users.length > 0) {
+      const keep = userSelect.value;
+      userSelect.replaceChildren(
+        el("option", { value: "", text: "All users" }),
+        ...data.users.map((u) => el("option", { value: u.id, text: u.label })),
+      );
+      userSelect.value = keep;
+      userSelect.hidden = false;
+    }
+    render();
+  } catch (error) {
+    showMessage("msg", error.message);
+  }
+}
+
+userSelect.addEventListener("change", load);
+statusSelect.addEventListener("change", render);
+document.getElementById("refresh").addEventListener("click", load);
+
+await load();
+</script>
+</body>
+</html>

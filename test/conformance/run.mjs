@@ -185,7 +185,11 @@ async function main() {
     });
     check("self-registration is refused with 403", register.status === 403, `got ${register.status}`);
 
-    const document = `conformance-${Date.now().toString(16)}`;
+    // Deliberately stable, not `conformance-${Date.now()}`. A fresh id per run
+    // left one permanent reading position behind every time the suite was run
+    // against a real deployment, which then showed up as junk on the Sync page.
+    // Reusing one document means repeated runs overwrite a single row.
+    const document = "conformance-probe";
     const put = await fetch(`${BASE}/syncs/progress`, {
       method: "PUT",
       headers: { ...headers, "content-type": "application/json" },

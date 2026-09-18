@@ -734,6 +734,34 @@ costs one row write per failure and is well inside the 100k/day budget.
 
 ---
 
+## 10a. Sync visibility [changed in build]
+
+**Added after deployment, on request.** kosync's data model is one position per
+`(user, document)`, last writer wins -- that is the protocol, and `progress` is
+faithful to it. It answers "where am I in this book" and cannot answer "where is
+each device", because each push overwrites the previous device's row. Checking
+whether two devices actually agree was therefore impossible from the stored
+data, which is the first thing you want when you are setting sync up.
+
+`progress_devices` (migration `0003`) keeps the latest position per
+`(user, document, device_id)` alongside `progress`. It is written in the same
+`putProgress()` call, as a second statement rather than a change to `progress`,
+because kosync reads that table and its semantics belong to the protocol rather
+than to us. `GET /syncs/progress/:document` is byte-identical to before.
+
+`GET /api/sync` serves the Sync page. In keeping with section 8's rule, the
+shaping happens in the pipeline: the SQL joins the book and the user and
+computes the per-book aggregates in window functions, and `groupSyncRows()`
+folds rows into books and decides in-sync versus diverged. The page renders that
+and derives nothing.
+
+**Access follows the existing role split.** Administrators see every user and may
+filter; a reader sees only their own devices. A reading position reveals what
+someone is reading and how far they have got, which is not an administrator's to
+publish to other readers.
+
+---
+
 ## 11. Operations
 
 - **Scheduled handler** (Cron Trigger, free): nightly — abort `uploads` rows

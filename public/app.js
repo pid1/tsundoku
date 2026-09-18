@@ -94,8 +94,15 @@ export function showMessage(id, text, kind = "error") {
 }
 
 export function markCurrentNav() {
+  // The asset router serves these pages extensionless: a request for
+  // /library.html is redirected to /library. So `location.pathname` never
+  // equals the ".html" href in the markup, and comparing them raw meant the
+  // current page was never marked. Strip the extension from both sides.
+  const strip = (path) => path.replace(/\.html$/, "");
+  const here = strip(location.pathname);
   for (const link of document.querySelectorAll("header.top nav a")) {
-    if (link.getAttribute("href") === location.pathname) link.setAttribute("aria-current", "page");
+    const href = link.getAttribute("href");
+    if (href && href.startsWith("/") && strip(href) === here) link.setAttribute("aria-current", "page");
   }
 }
 

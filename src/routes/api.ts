@@ -30,8 +30,11 @@ import {
   updateUserFields,
   upsertAuthors,
   upsertTags,
+  listDeviceProgress,
+  listSyncUsers,
 } from "../db/queries.js";
 import type { SortKey } from "../db/queries.js";
+import { groupSyncRows } from "../sync/status.js";
 import type { Book } from "../types.js";
 import { clampInt, detectFormat, generatePassword, nowSeconds, slugify, sortTitle, titleFromFilename, toHex, ulid } from "../util.js";
 
@@ -525,5 +528,31 @@ export function registerApiRoutes(router: Router): void {
     const who = await requireSession(c);
     if (who instanceof Response) return who;
     return json({ progress: await listProgress(c.env.DB, who.userId) });
+  });
+
+  /**
+   * Per-device sync status, grouped by book.
+   *
+   * A reader sees their own devices and nothing else: reading positions say
+   * what someone is reading and how far they have got, which is not an
+   * administrator's business to expose to other readers. An admin may look at
+   * everyone, or filter to one person with ?user=<id>.
+   */
+  router.get("/api/sync", async (c) => {
+    const who = await requireSession(c);
+    if (who instanceof Response) return who;
+
+    const requested = c.url.searchParams.get("user");
+    const isAdmin = who.role === "admin";
+    const scopeToUser = isAdmin ? (requested ?? undefined) : who.userId;
+
+    const rows = await listDeviceProgress(c.env.DB, { userId: scopeToUser });
+
+    return json({
+      books: groupSyncRows(rows),
+      // The filter only makes sense, and is only populated, for an admin.
+      users: isAdmin ? await listSyncUsers(c.env.DB) : [],
+      scope: { userId: scopeToUser ?? null, canFilter: isAdmin },
+    });
   });
 }

@@ -2,6 +2,16 @@
 
 > 積ん読 — acquiring books and letting them pile up unread.
 
+<p align="center">
+  <img src="docs/screenshots/library.png" alt="The library view: a grid of book covers with search, sorting and paging" width="100%">
+  <br><em>The library — covers, metadata and search, read out of the files on upload.</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/admin.png" alt="The administration view: storage against the R2 free tier, the user list, and the form for adding a user" width="100%">
+  <br><em>Administration — storage against the free tier, and the closed user set.</em>
+</p>
+
 An OPDS 1.2 **and** 2.0 catalog, an authenticated upload UI, and a
 KOReader-compatible progress sync server. One Cloudflare Worker, one R2 bucket,
 one D1 database, inside the free tier.
@@ -129,6 +139,29 @@ curl -u you:secret -H 'Accept: application/opds+json' \
 curl https://books.example.com/healthcheck
 ```
 
+## Sync
+
+The **Sync** page shows every reading position, grouped by book and broken out
+per device, so you can see at a glance whether two devices actually agree.
+
+- Each book lists its devices, furthest first, with how far behind the others
+  are and when each last pushed.
+- A book is **in sync** when its devices are within 0.5% of each other,
+  **out of sync** when they are not, and **one device** when there is nothing to
+  compare. The 0.5% tolerance exists because a device that merely re-renders the
+  page it was handed reports a fractionally different float.
+- Positions for books that are not in the library still appear, titled from the
+  metadata KOReader sends. That is the normal state for a book you read on a
+  device but never uploaded.
+- Administrators see everyone and can filter by user. **Readers see only their
+  own devices** -- a reading position says what someone is reading and how far
+  they have got, which is not something to hand to other readers.
+
+kosync itself keeps one position per user per book, last writer wins, so it
+cannot answer "where is each device". The per-device positions are recorded
+alongside it in `progress_devices` (migration `0003`). The kosync protocol
+routes are untouched and still answer from `progress`.
+
 ## Things that read as bugs but are not
 
 **The admin password does not change when you rotate `ADMIN_PASSWORD`.** That
@@ -220,6 +253,7 @@ src/
   http/             responses, ETags, byte ranges
   opds/             Atom (1.2) and JSON (2.0) serializers, OpenSearch, auth doc
   routes/           opds, content, api, kosync
+  sync/             per-device sync status shaping
 public/             the UI shell, served as static assets (free, unmetered)
 migrations/         D1 schema
 scripts/            setup, backup, reindex
