@@ -32,6 +32,17 @@ export function xml(body: string, contentType: string, init: ResponseInit = {}):
   });
 }
 
+/**
+ * A redirect we own the headers of.
+ *
+ * `Response.redirect()` returns a response whose headers are immutable, and
+ * every response leaving the router passes through `securityHeaders()`, which
+ * writes to them. Build it by hand instead.
+ */
+export function redirect(location: string, status: 301 | 302 | 303 | 307 | 308 = 302): Response {
+  return new Response(null, { status, headers: { location } });
+}
+
 export function problem(status: number, message: string, extra: Record<string, unknown> = {}): Response {
   return json({ error: message, ...extra }, { status });
 }
@@ -52,9 +63,19 @@ export function noStore(res: Response): Response {
  * a downgrade to cleartext would hand over the credential itself.
  */
 export function securityHeaders(res: Response): Response {
-  res.headers.set("x-content-type-options", "nosniff");
-  res.headers.set("referrer-policy", "no-referrer");
-  res.headers.set("x-frame-options", "DENY");
-  res.headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
-  return res;
+  // Some responses carry an immutable header guard -- `Response.redirect()` and
+  // anything handed back untouched from `fetch()`. Writing to those throws, and
+  // an exception here turns a good response into a 500. Copy into a response we
+  // own instead. Use `redirect()` above rather than relying on this.
+  let out = res;
+  try {
+    out.headers.set("x-content-type-options", "nosniff");
+  } catch {
+    out = new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers });
+    out.headers.set("x-content-type-options", "nosniff");
+  }
+  out.headers.set("referrer-policy", "no-referrer");
+  out.headers.set("x-frame-options", "DENY");
+  out.headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
+  return out;
 }

@@ -120,6 +120,14 @@ export async function pruneAuthFailures(db: D1Database): Promise<void> {
     .run();
 }
 
+/** Every cover key still pointed at by a book. Used by the nightly orphan sweep. */
+export async function referencedCoverKeys(db: D1Database): Promise<Set<string>> {
+  const { results } = await db
+    .prepare("SELECT DISTINCT cover_key FROM books WHERE cover_key IS NOT NULL")
+    .all<{ cover_key: string }>();
+  return new Set((results ?? []).map((r) => r.cover_key));
+}
+
 /* -------------------------------------------------------------------------- */
 /* books                                                                       */
 /* -------------------------------------------------------------------------- */

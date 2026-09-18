@@ -173,6 +173,15 @@ scope, R2 storage is the first thing you will outgrow* — at $0.015/GB-month
 beyond the free tier, a 100 GB library is about $1.35/month, which is worth
 knowing up front rather than discovering.
 
+**[changed in build] Decided 2026-09-18: comics are in scope.** The CBZ path is
+verified end to end against the deployment — a 3.6 MB CBZ uploaded, `ComicInfo.xml`
+parsed into series/number/writer/genre/summary, cover extracted, title composed
+as `Benchmark Funnies #3: The Test Signal`. Storage is accepted as the growth
+cost: R2 overage is linear and cheap, and the account this runs on is already
+Workers Paid rather than free-tier-limited. `MAX_UPLOAD_MB` stays at 95, so
+anything larger takes the multipart path and skips MD5 dedupe (§7) — revisit the
+cap when a real comic actually exceeds it, not before.
+
 **Requests.** The trap is cover art: an acquisition feed page of 50 books is
 1 feed request + up to 50 thumbnail requests = 51 Worker invocations. Three
 mitigations, all of which we implement:
@@ -237,6 +246,45 @@ defensible count fits, use it *for the UI login path only* (cold, once per
 session) and keep HMAC for Basic and kosync. Record the measured number in the
 README next to the command that produced it. Do not carry a guessed figure
 forward.
+
+**[changed in build] Gate cleared 2026-09-18. The conclusion holds; two of the
+reasons behind it were wrong.** Measured on a deployed Worker (harness in
+`test/bench/`, `cpuTime` read off `wrangler tail`; `Date.now()` does not advance
+during compute in Workers and cannot measure this):
+
+| iterations | CPU |
+|---|---|
+| 1,000 | 0 ms |
+| 10,000 | 3 ms |
+| 50,000 | 10 ms |
+| 100,000 | 22-27 ms |
+| 200,000 | throws: `Pbkdf2 failed: iteration counts above 100000 are not supported` |
+| HMAC-SHA256 x 50 | 0 ms |
+
+Three corrections to the reasoning above:
+
+1. **workerd hard-caps PBKDF2 at 100,000 iterations.** This section assumed the
+   CPU budget was the binding constraint. It is not -- the runtime refuses to
+   run a higher count at all. OWASP currently advises 600,000 for PBKDF2-SHA256,
+   so a Worker cannot reach current guidance on *any* plan. That is a stronger
+   argument against a slow KDF here than the 10 ms cap ever was.
+2. **The conditional in the gate is unsatisfiable, for a reason not noticed when
+   it was written.** "Use PBKDF2 for the UI login path only, keep HMAC for Basic
+   and kosync" leaves both verifiers derived from the same password and both
+   stored. An attacker holding D1 and the pepper attacks the fast one and
+   ignores the slow one: the weakest stored verifier governs. PBKDF2 on the
+   sign-in path would add a column and CPU for no change in the threat model.
+   It would only pay off if Basic and kosync were dropped -- that is, if
+   KOReader were dropped.
+3. **The 10 ms figure did not bind on the account this was deployed to.** A
+   single invocation there was measured at 506 ms CPU with `outcome: ok`, which
+   means Workers Paid, not the free plan. The free-tier arithmetic elsewhere in
+   this plan is still the design target and is unchanged -- but note that the
+   deployment it was first proved on is not itself free-tier-limited, so the
+   10 ms ceiling has **not** been verified in production here.
+
+**Decision: keep the peppered HMAC-SHA256 verifier, unchanged.** The compensating
+controls listed above are what carries this design, and they are all in place.
 
 ### Unauthenticated responses
 
@@ -627,6 +675,20 @@ which column it matches. The procedure is written up in
 `test/conformance/partial-md5.md`, which also holds the table to record the
 answer in.
 
+**[changed in build] Answered 2026-09-18 by asking LuaJIT directly.** The
+question is what Lua does, and Lua can be asked: `bit.lshift(1024, -2)` returns
+`0` in real LuaJIT, confirming the five-bit masking reading. So the first sample
+offset is 0 and **`partial_md5` (`primary`) is the column KOReader computes**;
+`partial_md5_alt` is the spare. KOReader's loop was transcribed into LuaJIT
+(`test/conformance/partialmd5.lua`) and run against files uploaded to the live
+deployment -- a 3,262 byte EPUB and a 3,595,420 byte CBZ sampling seven offsets
+-- and reproduced both stored columns exactly. The golden pair for the unit
+suite's 200,000-byte pattern is now pinned in `test/unit/partialmd5.test.ts`,
+which checks our TypeScript against the Lua rather than against our reading of
+it. Both columns stay, per the reasoning above. What remains unconfirmed is what
+a *specific KOReader build* writes to its sidecar, which still wants the device
+check.
+
 Getting this right buys a genuinely nice feature — the web UI can show "you're
 64% through this" next to a book, and the OPDS 2.0 feed can carry position — but
 it is a bonus. **Sync works without it**, because kosync only ever needs the hash
@@ -677,6 +739,29 @@ costs one row write per failure and is well inside the 100k/day budget.
 - **Scheduled handler** (Cron Trigger, free): nightly — abort `uploads` rows
   older than 24 h, sweep R2 objects with no `books` row and `books` rows with no
   R2 object, rebuild FTS if a drift check fails, and log storage used.
+
+  **[changed in build] Partially implemented, and one part was missing
+  outright.** The nightly job aborts stale uploads, prunes rate-limit counters
+  and logs storage. The orphan sweep this section calls for **was never
+  written**, while `DELETE /api/books/:id` was written to depend on it:
+  covers are content-addressed and may be shared between editions, so the
+  delete handler deliberately leaves them to "the nightly orphan sweep" that did
+  not exist. Every deleted book therefore leaked its cover into R2 permanently
+  — a slow leak against the one resource that is the first ceiling (§4), and
+  worse now that comics are in scope, since a comic cover is far larger than an
+  EPUB's. Found 2026-09-18 while emptying a test library: four books deleted,
+  four covers left behind.
+
+  `sweepOrphanCovers()` in `src/index.ts` now closes it, paging R2 with a
+  `covers/` prefix and deleting objects no `books.cover_key` points at. It
+  ignores anything uploaded inside a 24-hour grace period, because a cover is
+  written to R2 before its book row is committed and a sweep racing an upload
+  would otherwise delete the cover of a book that is about to exist. Covered by
+  `test/unit/sweep.test.ts`.
+
+  **Still not implemented from this bullet:** `books` rows with no R2 object
+  (the reverse direction), and the FTS drift check and rebuild. Neither leaks
+  storage, so neither is urgent, but both are still owed.
 - **Backups**: `wrangler d1 export` on the base tables (**not** the FTS virtual
   table — D1 export refuses databases containing virtual tables, so the dump
   script must exclude it and the restore script must recreate it from
@@ -879,6 +964,7 @@ curl -H "x-auth-user: user" -H "x-auth-key: $(printf %s 'pass' | md5)" \
    D1 fallback is designed in, so this is a preference, not a blocker.
 6. **R2's 10 GB is the first ceiling you will hit** if comics are in scope (§4).
    Decide now whether CBZ is in or out; it changes the storage story completely.
+   **[changed in build] Decided: in.** See §4.
 7. **OPDS 2.0 client support is thin in practice.** Building it is cheap once the
    queries exist, but do not expect it to be the surface that gets used — 1.2 is
    what the installed base speaks. Build 1.2 first (Phase 4 before Phase 5).

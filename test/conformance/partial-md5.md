@@ -1,6 +1,7 @@
 # Resolving the partial-MD5 ambiguity
 
-**Status: unresolved. This is the gate on trusting `books.partial_md5`.**
+**Status: resolved against real LuaJIT on 2026-09-18; device confirmation still
+outstanding. `primary` (offset 0) is the column to trust.**
 
 ## What is ambiguous
 
@@ -70,6 +71,42 @@ Record it here with the date and the KOReader version it was observed on, then:
 
 ## Result
 
+### Settled without a device, 2026-09-18
+
+The ambiguity is about what Lua does, so it can be answered by asking Lua. On a
+machine with LuaJIT (`brew install luajit`):
+
+```console
+$ luajit -e 'local bit=require("bit"); print(bit.lshift(1024,-2))'
+0
+```
+
+The shift count is masked to five bits, so the first sample offset is **0**, not
+256. `partial_md5` (`primary`) is what KOReader computes; `partial_md5_alt` is
+the arithmetic reading and is the spare.
+
+KOReader's loop was then transcribed into LuaJIT and run against two real files
+that had been uploaded to a live deployment, and against the 200,000-byte
+pattern the unit tests use. Every digest matched the corresponding column
+exactly:
+
+| File | Size | Offsets sampled | `primary` | `alt` |
+|---|---|---|---|---|
+| `pale-fire.epub` | 3,262 B | 0, 1024 | `4815a87f...` matched | `00c2625d...` matched |
+| `benchmark-funnies-03.cbz` | 3,595,420 B | 0 … 1048576 (7) | `3d672036...` matched | `816e0c82...` matched |
+| `pattern(200000)` (unit fixture) | 200,000 B | 0 … 65536 (5) | `1784b150...` | `a4c46791...` |
+
+The last row is now pinned in `test/unit/partialmd5.test.ts`, so our TypeScript
+is checked against the Lua the readers actually run rather than against our own
+reading of the Lua.
+
+### Still outstanding
+
+This proves the algorithm and our implementation of it. It does **not** prove
+what a given KOReader build writes into its sidecar -- that would need the
+device procedure above, and it is the only thing that closes the loop on a
+specific version. Both columns stay regardless, and sync never depended on this.
+
 | Date | KOReader version | File | Sidecar hash | Matched |
 |------|------------------|------|--------------|---------|
-| _unrecorded_ | | | | |
+| _unrecorded -- device check still wanted_ | | | | |

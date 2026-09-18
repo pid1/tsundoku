@@ -1,0 +1,9 @@
+# Throwaway Worker for the PBKDF2-versus-CPU measurement. Not part of tsundoku;
+# deploy it, read the numbers off `wrangler tail`, then `wrangler delete`.
+name = "tsundoku-bench"
+main = "pbkdf2-worker.js"
+compatibility_date = "2026-08-01"
+workers_dev = true
+
+[observability]
+enabled = true

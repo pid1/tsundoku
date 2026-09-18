@@ -4,7 +4,7 @@ import type { BookView, Page } from "../types.js";
 import type { Principal } from "../auth/index.js";
 import { authenticateBasic } from "../auth/index.js";
 import { readSession } from "../auth/session.js";
-import { CT, notFound, tooMany, xml, json } from "../http/responses.js";
+import { CT, notFound, redirect, tooMany, xml, json } from "../http/responses.js";
 import { feedEtag, ifNoneMatch, notModified } from "../http/etag.js";
 import { authDocument, unauthorized } from "../opds/authdoc.js";
 import { openSearchDescription } from "../opds/opensearch.js";
@@ -130,7 +130,7 @@ export function registerOpdsRoutes(router: Router): void {
     const accept = c.request.headers.get("accept") ?? "";
     // Default to 1.2: it is what the installed base actually speaks.
     const wantsJson = accept.includes("opds+json") && !accept.includes("atom+xml");
-    return Response.redirect(`${c.url.origin}/opds/${wantsJson ? "2.0" : "1.2"}`, 302);
+    return redirect(`${c.url.origin}/opds/${wantsJson ? "2.0" : "1.2"}`, 302);
   });
 
   /* ---------------------------- 1.2 navigation --------------------------- */

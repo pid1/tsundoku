@@ -5,7 +5,15 @@ import { registerContentRoutes } from "./routes/content.js";
 import { registerKosyncRoutes } from "./routes/kosync.js";
 import { registerOpdsRoutes } from "./routes/opds.js";
 import { securityHeaders } from "./http/responses.js";
-import { countUsers, createUser, deleteUpload, listStaleUploads, pruneAuthFailures, stats } from "./db/queries.js";
+import {
+  countUsers,
+  createUser,
+  deleteUpload,
+  listStaleUploads,
+  pruneAuthFailures,
+  referencedCoverKeys,
+  stats,
+} from "./db/queries.js";
 import { verifiersFor } from "./auth/password.js";
 
 const router = new Router();
@@ -98,14 +106,57 @@ async function housekeeping(env: Env): Promise<void> {
     await deleteUpload(env.DB, upload.id);
   }
 
-  // 2. Drop expired rate-limit counters.
+  // 2. Sweep orphaned covers.
+  const sweptCovers = await sweepOrphanCovers(env);
+
+  // 3. Drop expired rate-limit counters.
   await pruneAuthFailures(env.DB);
 
-  // 3. Report storage against the free tier, so the ceiling is never a surprise.
+  // 4. Report storage against the free tier, so the ceiling is never a surprise.
   const s = await stats(env.DB);
   const gib = s.bytes / (1024 * 1024 * 1024);
   console.log(
     `housekeeping: ${s.books} books, ${gib.toFixed(2)} GiB of the 10 GiB R2 free tier ` +
-      `(${((gib / 10) * 100).toFixed(1)}%), ${s.unindexed} unindexed, ${stale.length} stale uploads aborted`,
+      `(${((gib / 10) * 100).toFixed(1)}%), ${s.unindexed} unindexed, ${stale.length} stale uploads aborted, ` +
+      `${sweptCovers} orphaned covers swept`,
   );
+}
+
+/**
+ * Covers are content-addressed, so two editions of the same book share one
+ * object and `DELETE /api/books/:id` cannot know whether it was the last
+ * referent. It leaves them here instead. Without this, every deleted book
+ * leaks its cover into R2 forever -- and storage is the first ceiling (PLAN.md
+ * section 4).
+ *
+ * Only objects older than the grace period are considered, so a cover written
+ * moments ago by an upload still finishing is never mistaken for an orphan.
+ */
+const COVER_SWEEP_GRACE_SECONDS = 24 * 60 * 60;
+
+export async function sweepOrphanCovers(env: Env): Promise<number> {
+  const referenced = await referencedCoverKeys(env.DB);
+  const cutoff = Date.now() - COVER_SWEEP_GRACE_SECONDS * 1000;
+  let swept = 0;
+  let cursor: string | undefined;
+
+  do {
+    const page = await env.BOOKS.list({ prefix: "covers/", cursor, limit: 1000 });
+    const doomed = page.objects
+      .filter((o) => !referenced.has(o.key) && o.uploaded.getTime() < cutoff)
+      .map((o) => o.key);
+
+    // R2 deletes up to 1000 keys per call, and a page is at most 1000.
+    if (doomed.length > 0) {
+      try {
+        await env.BOOKS.delete(doomed);
+        swept += doomed.length;
+      } catch (e) {
+        console.warn("cover sweep failed", e instanceof Error ? e.message : String(e));
+      }
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+
+  return swept;
 }

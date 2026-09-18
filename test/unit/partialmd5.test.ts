@@ -90,4 +90,20 @@ describe("partialMd5", () => {
     const d = await partialMd5(bytesRangeReader(bigAppended));
     expect(c.primary).toBe(d.primary);
   });
+  // Cross-implementation fixture. These two digests were produced by running
+  // KOReader's own partialMD5 loop in real LuaJIT over the identical 200,000
+  // byte pattern (test/conformance/partial-md5.md records the procedure), so
+  // they pin our TypeScript against the Lua the readers actually run rather
+  // than against our own reading of it.
+  //
+  // `primary` is the LuaJIT evaluation: bit.lshift(1024, -2) masks the shift
+  // count to five bits, giving 1024 << 30, which overflows to offset 0.
+  // `alt` is the arithmetic reading, offset 256. LuaJIT on this machine
+  // returns 0, so `primary` is the one KOReader computes.
+  it("matches KOReader's algorithm as evaluated by real LuaJIT", async () => {
+    const bytes = pattern(200000);
+    const { primary, alt } = await partialMd5(bytesRangeReader(bytes));
+    expect(primary).toBe("1784b150454ef4cf6780ceb94af0386f");
+    expect(alt).toBe("a4c467911c7cce46aa803a42866f5ac1");
+  });
 });

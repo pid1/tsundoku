@@ -23,7 +23,7 @@ open questions. This file is how to run it.
 
 | Limit | Free plan | What it means here |
 |---|---|---|
-| R2 storage | 10 GB-month | **The first ceiling.** Roughly 2,000–5,000 EPUBs, or ~80 comics. |
+| R2 storage | 10 GB-month | **The first ceiling.** Roughly 2,000–5,000 EPUBs, or ~80 comics. Comics are in scope, so this is what you outgrow first. |
 | Worker requests | 100,000 / day | Enormous for a household. The UI shell is static assets, which are free and unmetered. |
 | Worker CPU | 10 ms / invocation | Shapes the credential design. See [Security](#security). |
 | Request body | 100 MB | Files over 95 MB upload via R2 multipart automatically. |
@@ -170,8 +170,43 @@ no self-signup, a closed user set, generated high-entropy passwords, per-IP and
 per-username rate limiting on failed sign-ins, and constant-time comparison.
 
 **This trade is documented, not hidden** — [`PLAN.md` §5](PLAN.md) states it in
-full, including the benchmark that has not been run yet. If you are exposing this
-to more than a handful of people, read that section first.
+full. If you are exposing this to more than a handful of people, read that
+section first.
+
+### The PBKDF2 benchmark, measured
+
+Measured 2026-09-18 on a deployed Worker with the harness in
+[`test/bench/`](test/bench/), reading `cpuTime` off `wrangler tail` (`Date.now()`
+does not advance during compute in Workers, so it cannot measure this):
+
+| PBKDF2-SHA256 iterations | CPU time |
+|---|---|
+| 1,000 | 0 ms |
+| 10,000 | 3 ms |
+| 50,000 | 10 ms |
+| 100,000 | 22–27 ms |
+| 200,000 | **throws** — `Pbkdf2 failed: iteration counts above 100000 are not supported` |
+| HMAC-SHA256 × 50 (what we do now) | 0 ms |
+
+Three things fall out, and together they say **keep HMAC**:
+
+1. **workerd caps PBKDF2 at 100,000 iterations.** Above that it throws, so the
+   cap is a hard ceiling, not a budget. OWASP currently advises 600,000 for
+   PBKDF2-SHA256 — **six times more than a Worker will run at all.** No
+   defensible modern KDF count is reachable here on any plan.
+2. **Against the free plan's 10 ms, the most that fits with margin is about
+   30,000 iterations** (50,000 lands exactly on the cap with none). That is a
+   weak KDF, not a good one.
+3. **It would buy nothing anyway.** The same password has to stay verifiable by
+   a fast keyed hash for Basic and kosync, which send credentials on every
+   request. An attacker with the database and the pepper attacks the fast
+   verifier and ignores the slow one — the weakest verifier governs. PBKDF2 on
+   the sign-in path only would add cost and a schema column for no gain, unless
+   Basic and kosync were dropped, which would mean dropping KOReader.
+
+So the design stands, but one premise behind it has changed: see
+[`PLAN.md` §5](PLAN.md). The 10 ms cap is **not** what rules PBKDF2 out —
+workerd's 100,000 ceiling and the shared-credential argument are.
 
 ## Layout
 
@@ -213,14 +248,19 @@ nothing.
 
 ## Known unknowns
 
-1. **The KOReader document hash has an unresolved ambiguity.** `lshift(1024, -2)`
-   is 256 read arithmetically and 0 under LuaJIT's five-bit shift masking. Both
-   candidates are computed and stored, and lookups match either, so sync works
-   regardless — but the library-linking nicety is unverified.
-   [`test/conformance/partial-md5.md`](test/conformance/partial-md5.md) has the
-   procedure to settle it against a real device.
-2. **The PBKDF2-versus-10 ms benchmark has not been run.** The design does not
-   depend on it, but the measured number belongs in this file.
+1. **The KOReader document hash ambiguity is settled — against LuaJIT, not yet
+   against a device.** `bit.lshift(1024, -2)` returns `0` in real LuaJIT (the
+   shift count is masked to five bits), so the first sample offset is 0 and
+   `partial_md5` is the column KOReader computes. KOReader's loop was
+   transcribed into LuaJIT and matched both stored columns byte-for-byte on
+   files up to 3.6 MB, and that golden pair is now pinned in
+   `test/unit/partialmd5.test.ts`. What is still unconfirmed is what a specific
+   KOReader build writes to its sidecar.
+   [`test/conformance/partial-md5.md`](test/conformance/partial-md5.md) has both
+   the evidence and the remaining device procedure.
+2. ~~The PBKDF2-versus-10 ms benchmark has not been run.~~ **Run 2026-09-18** —
+   see [Security](#the-pbkdf2-benchmark-measured). The answer is to keep HMAC,
+   for a different reason than the plan assumed.
 3. **Reader quirks, not specs, are the real compatibility risk.** KOReader has an
    open history of OPDS credential bugs across versions. Test against devices.
 4. **OPDS 2.0 client support is thin in practice.** It is built and correct; 1.2

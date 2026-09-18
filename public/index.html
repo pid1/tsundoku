@@ -40,8 +40,10 @@ import { api, showMessage } from "/app.js";
 const form = document.getElementById("login");
 const submit = document.getElementById("submit");
 
-// Already signed in? Go straight through.
-api("/api/me").then(() => { location.href = next(); }).catch(() => {});
+// Already signed in? Go straight through. A 401 here is the normal answer for
+// a signed-out visitor, so opt out of the helper's sign-in redirect: this page
+// IS the sign-in page.
+api("/api/me", { redirectOn401: false }).then(() => { location.href = next(); }).catch(() => {});
 
 function next() {
   const target = new URLSearchParams(location.search).get("next");

@@ -2,18 +2,29 @@
 // assets, which on the Workers free plan are free and unmetered.
 
 export async function api(path, options = {}) {
+  // `redirectOn401` is ours, not fetch's -- keep it out of the request init.
+  const { redirectOn401 = true, ...init } = options;
   const response = await fetch(path, {
     credentials: "same-origin",
-    ...options,
+    ...init,
     headers: {
-      ...(options.body && !(options.body instanceof Blob) && typeof options.body === "string"
+      ...(init.body && !(init.body instanceof Blob) && typeof init.body === "string"
         ? { "content-type": "application/json" }
         : {}),
-      ...(options.headers || {}),
+      ...(init.headers || {}),
     },
   });
 
-  if (response.status === 401 && !path.startsWith("/api/session")) {
+  // A 401 sends you to the sign-in page -- but only from a page that is not
+  // already it. On "/" a 401 is the expected answer for a signed-out visitor,
+  // and redirecting there navigates to the page we are already on, forever.
+  // Callers on "/" also pass redirectOn401: false to say so explicitly.
+  if (
+    response.status === 401 &&
+    redirectOn401 &&
+    !path.startsWith("/api/session") &&
+    location.pathname !== "/"
+  ) {
     location.href = `/?next=${encodeURIComponent(location.pathname)}`;
     throw new Error("Sign in required");
   }
