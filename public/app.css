@@ -133,6 +133,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .card .t { font-size: 0.9rem; line-height: 1.3; }
 .card .a { font-size: 0.8rem; color: var(--muted); }
 .card .meta { font-size: 0.72rem; color: var(--muted); }
+/* A link that reads as a button: the download is a plain <a> so that Save-link-as,
+   middle click and a resumed transfer all keep working. */
+.card .dl {
+  margin-top: auto;
+  align-self: start;
+  font-size: 0.72rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.card .dl:hover { border-color: var(--accent); color: var(--accent); }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); }

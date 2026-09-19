@@ -11,8 +11,8 @@
 <header class="top">
   <a class="brand" href="/library.html">tsundoku</a>
   <nav>
-    <a href="/sync.html">Sync</a>
     <a href="/library.html">Library</a>
+    <a href="/sync.html">Sync</a>
     <a href="/upload.html">Upload</a>
     <a href="/admin.html" data-admin-only>Admin</a>
     <a href="/help.html">Help</a>
@@ -113,11 +113,13 @@ function render(books) {
       });
       if (!book.cover_key) cover.textContent = book.title;
 
+      const href = `/content/${book.id}/${encodeURIComponent(book.filename)}`;
+
       const card = el(
         "div",
         { class: "card" },
         cover,
-        el("a", { class: "t", href: `/content/${book.id}/${encodeURIComponent(book.filename)}`, text: book.title }),
+        el("a", { class: "t", href, text: book.title }),
         el("div", { class: "a", text: book.authors.join(", ") || "Unknown author" }),
         el(
           "div",
@@ -126,6 +128,16 @@ function render(books) {
           `${book.format.toUpperCase()} - ${formatBytes(book.byte_size)} - ${formatDate(book.added_at)}`,
         ),
         book.index_error ? el("div", { class: "meta", style: "color:var(--danger)", text: book.index_error }) : null,
+        // The title already links to the file, but nothing says so. This is the
+        // affordance: `download` names the file rather than trusting the
+        // Content-Disposition the route happens to send.
+        el("a", {
+          class: "dl",
+          href,
+          download: book.filename,
+          text: `Download ${book.format.toUpperCase()}`,
+          title: `Download ${book.filename} (${formatBytes(book.byte_size)})`,
+        }),
       );
       cover.addEventListener("click", () => openEditor(book));
       return card;
