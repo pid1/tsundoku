@@ -77,6 +77,23 @@ jobs:
             -H "x-auth-key: $(printf cipassword | md5sum | cut -d' ' -f1)" \
             -H 'Accept: application/vnd.koreader.v1+json'
 
+      # K-ISO-1 asks whether one account can read another's position for the
+      # same document id, which is the property that matters most on a server
+      # several people share. It needs a second account, and the admin seed
+      # only fires while the users table is empty, so this one is made the way
+      # a real one is: sign in, then POST /api/users.
+      - name: Seed a second account, so the isolation check can run
+        run: |
+          cookie=$(curl -si -X POST http://127.0.0.1:8787/api/session \
+            -H 'content-type: application/json' \
+            -d '{"username":"ciuser","password":"cipassword"}' \
+            | grep -i '^set-cookie:' | sed 's/^[Ss]et-[Cc]ookie: //' | cut -d';' -f1)
+          test -n "$cookie" || { echo "no session cookie; cannot create the second account" >&2; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8787/api/users \
+            -H 'content-type: application/json' -H "cookie: $cookie" \
+            -d '{"username":"ciuser2","password":"ci-second-password","role":"reader"}')
+          test "$code" = "201" || { echo "second account not created (http $code)" >&2; exit 1; }
+
       # --registration-off: tsundoku closes kosync self-registration by design
       # (ALLOW_KOSYNC_REGISTER defaults to "0"); accounts are made by an admin
       # in the web UI. Declaring it stops the verifier reporting a deliberate
@@ -86,6 +103,7 @@ jobs:
           node "$RUNNER_TEMP/kosync-conformance/verify.mjs" \
             --base-url http://127.0.0.1:8787 \
             --user ciuser --password cipassword \
+            --second-user ciuser2 --second-password ci-second-password \
             --registration-off \
             --json "$RUNNER_TEMP/tsundoku-report.json"
 
