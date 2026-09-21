@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tsundoku</title>
+<meta name="description" content="An OPDS 1.2 and 2.0 catalog, an upload UI, and a KOReader-compatible progress sync server. One Cloudflare Worker, inside the free tier.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%237a4b2a'/%3E%3Cg fill='%23fbfaf7'%3E%3Crect x='14' y='40' width='36' height='7' rx='1.5'/%3E%3Crect x='17' y='31' width='30' height='7' rx='1.5' opacity='.88'/%3E%3Crect x='20' y='22' width='24' height='7' rx='1.5' opacity='.76'/%3E%3Crect x='23' y='13' width='18' height='7' rx='1.5' opacity='.64'/%3E%3C/g%3E%3C/svg%3E">
+<meta property="og:title" content="tsundoku">
+<meta property="og:description" content="OPDS catalog, KOReader progress sync and an upload UI, in one Cloudflare Worker on the free tier.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://pid1.github.io/tsundoku/">
+<meta property="og:image" content="https://pid1.github.io/tsundoku/screenshots/library.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root {
+  --bg: #fbfaf7; --panel: #ffffff; --ink: #1d1b16; --muted: #6b6558;
+  --line: #e2ddd1; --accent: #7a4b2a; --accent-ink: #ffffff; --ok: #2f6b43;
+  --radius: 10px; --shadow: 0 1px 2px rgba(29,27,22,.06), 0 4px 14px rgba(29,27,22,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171613; --panel: #201e1a; --ink: #ece7dc; --muted: #9c9486;
+    --line: #35312a; --accent: #d79a68; --accent-ink: #201e1a; --ok: #86c79b;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  -webkit-text-size-adjust: 100%;
+}
+a { color: var(--accent); }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+header.top {
+  display: flex; align-items: center; gap: 1rem; padding: .85rem 16px;
+  border-bottom: 1px solid var(--line); background: var(--panel);
+  position: sticky; top: 0; z-index: 10;
+}
+header.top .brand { display: flex; align-items: center; gap: .55rem; font-weight: 700; letter-spacing: .02em; color: var(--ink); text-decoration: none; }
+header.top .brand svg { display: block; border-radius: 6px; }
+header.top nav { display: flex; gap: .9rem; margin-left: auto; flex-wrap: wrap; font-size: .95rem; }
+header.top nav a { color: var(--muted); text-decoration: none; }
+header.top nav a:hover { color: var(--ink); text-decoration: underline; }
+
+main { max-width: 1040px; margin: 0 auto; padding: 0 16px 4rem; }
+section { scroll-margin-top: 4.5rem; }
+
+.hero { padding: 3.5rem 0 2.5rem; border-bottom: 1px solid var(--line); }
+.hero .kana { font-size: 2.6rem; letter-spacing: .12em; color: var(--accent); margin: 0 0 .35rem; }
+.hero h1 { font-size: 2.5rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
+.hero .gloss { color: var(--muted); font-style: italic; margin: 0 0 1.4rem; }
+.hero .lede { font-size: 1.2rem; max-width: 46rem; margin: 0 0 1.2rem; }
+.hero .lede strong { font-weight: 700; }
+.hero .stack { color: var(--muted); max-width: 46rem; margin: 0 0 1.8rem; }
+.cta { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+.btn {
+  display: inline-block; padding: .6rem 1.15rem; border-radius: 8px; text-decoration: none;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600;
+}
+.btn.secondary { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 400; }
+.btn:hover { opacity: .9; }
+.tag {
+  display: inline-block; font-size: .8rem; padding: .18rem .5rem; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); text-decoration: none;
+}
+
+h2 { font-size: 1.35rem; margin: 2.75rem 0 1rem; }
+h3 { font-size: 1rem; margin: 0 0 .4rem; }
+p { margin: 0 0 1rem; }
+
+.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.1rem; margin-top: 1.5rem; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.2rem; box-shadow: var(--shadow); }
+.panel p { margin: 0; color: var(--muted); font-size: .95rem; }
+.panel .icon { color: var(--accent); margin-bottom: .6rem; display: block; }
+
+figure { margin: 0 0 2rem; }
+figure img {
+  width: 100%; height: auto; display: block; border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow); background: var(--panel);
+}
+figcaption { color: var(--muted); font-size: .9rem; font-style: italic; margin-top: .6rem; }
+
+pre {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 1rem; overflow-x: auto; font-size: .875rem; line-height: 1.6; box-shadow: var(--shadow);
+}
+pre .c { color: var(--muted); }
+
+.tables { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: .85rem; letter-spacing: .02em; }
+td code { font-size: .875rem; word-break: break-all; }
+
+ul.plain { list-style: none; padding: 0; margin: 0; }
+ul.plain li { padding: .35rem 0 .35rem 1.5rem; position: relative; color: var(--muted); }
+ul.plain li::before { content: "—"; position: absolute; left: 0; color: var(--accent); }
+
+.note { color: var(--muted); font-size: .9rem; }
+
+footer {
+  border-top: 1px solid var(--line); background: var(--panel);
+  padding: 2rem 16px; color: var(--muted); font-size: .9rem;
+}
+footer .inner { max-width: 1040px; margin: 0 auto; display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; }
+
+@media (max-width: 640px) {
+  .hero { padding: 2.5rem 0 2rem; }
+  .hero h1 { font-size: 2rem; }
+  .hero .kana { font-size: 2.1rem; }
+  .hero .lede { font-size: 1.05rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="./">
+    <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="12" fill="#7a4b2a"/>
+      <g fill="#fbfaf7">
+        <rect x="14" y="40" width="36" height="7" rx="1.5"/>
+        <rect x="17" y="31" width="30" height="7" rx="1.5" opacity=".88"/>
+        <rect x="20" y="22" width="24" height="7" rx="1.5" opacity=".76"/>
+        <rect x="23" y="13" width="18" height="7" rx="1.5" opacity=".64"/>
+      </g>
+    </svg>
+    tsundoku
+  </a>
+  <nav>
+    <a href="#screenshots">Screenshots</a>
+    <a href="#install">Install</a>
+    <a href="#readers">Readers</a>
+    <a href="#limits">Free tier</a>
+    <a href="https://github.com/pid1/tsundoku">GitHub</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="hero">
+    <p class="kana">積ん読</p>
+    <h1>tsundoku</h1>
+    <p class="gloss">acquiring books and letting them pile up unread</p>
+    <p class="lede">
+      An <strong>OPDS 1.2 and 2.0 catalog</strong>, an authenticated <strong>upload UI</strong>,
+      and a <strong>KOReader-compatible progress sync server</strong>.
+    </p>
+    <p class="stack">
+      One Cloudflare Worker, one R2 bucket, one D1 database — inside the free tier.
+      Your library, on your own domain, readable from any device that speaks OPDS.
+    </p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/pid1/tsundoku">View on GitHub</a>
+      <a class="btn secondary" href="#install">Install in five commands</a>
+      <a class="tag" href="https://github.com/pid1/tsundoku/releases/tag/v1.0.0">v1.0.0</a>
+      <a class="tag" href="https://github.com/pid1/tsundoku/blob/main/LICENSE">BSD-3-Clause</a>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it does</h2>
+    <div class="features">
+      <div class="panel">
+        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H9a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H3z"/>
+          <path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H15a3 3 0 0 0-3 3v12a2.5 2.5 0 0 1 2.5-2.5H21z"/>
+        </svg>
+        <h3>Browse and download</h3>
+        <p>OPDS 1.2 for KOReader, FBReader, Panels, Moon+ and PocketBook; OPDS 2.0 JSON for Thorium. Covers and metadata come along.</p>
+      </div>
+      <div class="panel">
+        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M20 11a8 8 0 0 0-14.7-4.4M4 13a8 8 0 0 0 14.7 4.4"/>
+          <path d="M4 4v4h4M20 20v-4h-4"/>
+        </svg>
+        <h3>Sync where you left off</h3>
+        <p>KOReader's own kosync protocol, so the Progress sync plugin just works. Every device's position on every book, and whether they actually agree.</p>
+      </div>
+      <div class="panel">
+        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M12 16V4M8 8l4-4 4 4"/>
+          <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/>
+        </svg>
+        <h3>Upload from the browser</h3>
+        <p>EPUB and CBZ have their title, author and cover art read out of the file server-side. Files over 95&nbsp;MB take the R2 multipart path automatically.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="screenshots">
+    <h2>Screenshots</h2>
+    <figure>
+      <img src="screenshots/library.png" width="2000" height="1301" loading="lazy" decoding="async"
+           alt="The library view: a grid of book covers with search, sorting and paging.">
+      <figcaption>The library — covers, metadata and search, read out of the files on upload.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/sync.png" width="2000" height="1300" loading="lazy" decoding="async"
+           alt="The sync view: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are.">
+      <figcaption>Sync — every device's position on every book, and whether they actually agree.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/admin.png" width="2000" height="1301" loading="lazy" decoding="async"
+           alt="The administration view: storage used against the R2 free tier, the user list, and the form for adding a user.">
+      <figcaption>Administration — storage against the free tier, and the closed user set.</figcaption>
+    </figure>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <p>Needs Node 22+ and a Cloudflare account.</p>
+<pre><code>git clone https://github.com/pid1/tsundoku &amp;&amp; cd tsundoku
+npm install
+npx wrangler login
+
+./scripts/setup.sh      <span class="c"># bucket, database, migrations, secrets, admin password</span>
+npm run deploy</code></pre>
+    <p class="note">
+      <code>setup.sh</code> is idempotent and prints the generated admin password at the end — write it down.
+      A custom domain is strongly recommended: some OPDS clients dislike <code>workers.dev</code> subdomains,
+      and TLS is non-negotiable because authentication is HTTP Basic.
+    </p>
+  </section>
+
+  <section id="readers">
+    <h2>Connecting a reader</h2>
+    <div class="tables">
+      <table>
+        <thead>
+          <tr><th>Client</th><th>Where</th><th>Address</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>KOReader — catalog</td>
+            <td>Search → OPDS catalog → +</td>
+            <td><code>https://books.example.com/opds/1.2</code></td>
+          </tr>
+          <tr>
+            <td>KOReader — progress sync</td>
+            <td>Tools → More tools → Progress sync</td>
+            <td><code>https://books.example.com</code> — the base address, no path</td>
+          </tr>
+          <tr>
+            <td>Thorium Reader</td>
+            <td>Catalogs → Add catalog</td>
+            <td><code>https://books.example.com/opds/2.0</code></td>
+          </tr>
+          <tr>
+            <td>FBReader, Moon+, PocketBook, Panels, Aldiko</td>
+            <td>Add OPDS catalog</td>
+            <td><code>https://books.example.com/opds/1.2</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">
+      On KOReader, choose <strong>Login</strong> rather than Register — self-registration is disabled and answers 403 —
+      and set the same document matching method on every device. <code>binary</code> is the default and the right choice;
+      <code>filename</code> breaks the moment you rename a file.
+    </p>
+  </section>
+
+  <section id="limits">
+    <h2>What the free tier buys you</h2>
+    <div class="tables">
+      <table>
+        <thead>
+          <tr><th>Limit</th><th>Free plan</th><th>What it means here</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>R2 storage</td><td>10 GB-month</td><td><strong>The first ceiling.</strong> Roughly 2,000–5,000 EPUBs, or ~80 comics.</td></tr>
+          <tr><td>R2 egress</td><td>Free</td><td>Why this is on R2 and not S3.</td></tr>
+          <tr><td>Worker requests</td><td>100,000 / day</td><td>Enormous for a household. The UI shell is static assets, which are unmetered.</td></tr>
+          <tr><td>Request body</td><td>100 MB</td><td>Files over 95 MB upload via R2 multipart automatically.</td></tr>
+          <tr><td>D1</td><td>5 GB, 5M row reads/day</td><td>Nowhere near it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Figures read from Cloudflare's documentation on 2026-09-18. Re-check them before relying on them.</p>
+  </section>
+
+  <section>
+    <h2>What it deliberately is not</h2>
+    <ul class="plain">
+      <li>No DRM, and no lending</li>
+      <li>No in-browser reader — your reader is your reader</li>
+      <li>No public catalog: every route except <code>/healthcheck</code> and the login page needs credentials</li>
+      <li>No open registration — the admin creates the accounts</li>
+    </ul>
+    <p class="note" style="margin-top:1.25rem">
+      <a href="https://github.com/pid1/tsundoku/blob/main/PLAN.md">PLAN.md</a> has the design reasoning,
+      the free-tier arithmetic and the open questions.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="inner">
+    <span>tsundoku — BSD-3-Clause. Not affiliated with the KOReader project.</span>
+    <span>
+      <a href="https://github.com/pid1/tsundoku">Source</a> ·
+      <a href="https://github.com/pid1/tsundoku/releases">Releases</a> ·
+      <a href="https://github.com/pid1/tsundoku/issues">Issues</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>
