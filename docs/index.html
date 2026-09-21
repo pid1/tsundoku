@@ -151,8 +151,7 @@ footer .inner { max-width: 1040px; margin: 0 auto; display: flex; gap: 1rem; fle
       and a <strong>KOReader-compatible progress sync server</strong>.
     </p>
     <p class="stack">
-      One Cloudflare Worker, one R2 bucket, one D1 database — inside the free tier.
-      Your library, on your own domain, readable from any device that speaks OPDS.
+      One Cloudflare Worker, one R2 bucket, one D1 database, inside the free tier.
     </p>
     <div class="cta">
       <a class="btn" href="https://github.com/pid1/tsundoku">View on GitHub</a>
@@ -178,15 +177,15 @@ footer .inner { max-width: 1040px; margin: 0 auto; display: flex; gap: 1rem; fle
           <path d="M20 11a8 8 0 0 0-14.7-4.4M4 13a8 8 0 0 0 14.7 4.4"/>
           <path d="M4 4v4h4M20 20v-4h-4"/>
         </svg>
-        <h3>Sync where you left off</h3>
-        <p>KOReader's own kosync protocol, so the Progress sync plugin just works. Every device's position on every book, and whether they actually agree.</p>
+        <h3>Sync reading position</h3>
+        <p>KOReader's own kosync protocol, so the Progress sync plugin needs only the base address. Every device's position on every book, and whether they actually agree.</p>
       </div>
       <div class="panel">
         <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
           <path d="M12 16V4M8 8l4-4 4 4"/>
           <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/>
         </svg>
-        <h3>Upload from the browser</h3>
+        <h3>Upload through a web UI</h3>
         <p>EPUB and CBZ have their title, author and cover art read out of the file server-side. Files over 95&nbsp;MB take the R2 multipart path automatically.</p>
       </div>
     </div>
@@ -221,7 +220,7 @@ npx wrangler login
 ./scripts/setup.sh      <span class="c"># bucket, database, migrations, secrets, admin password</span>
 npm run deploy</code></pre>
     <p class="note">
-      <code>setup.sh</code> is idempotent and prints the generated admin password at the end — write it down.
+      <code>setup.sh</code> is idempotent and prints the generated admin password at the end. Write it down.
       A custom domain is strongly recommended: some OPDS clients dislike <code>workers.dev</code> subdomains,
       and TLS is non-negotiable because authentication is HTTP Basic.
     </p>
@@ -259,14 +258,14 @@ npm run deploy</code></pre>
       </table>
     </div>
     <p class="note">
-      On KOReader, choose <strong>Login</strong> rather than Register — self-registration is disabled and answers 403 —
-      and set the same document matching method on every device. <code>binary</code> is the default and the right choice;
+      On KOReader, choose <strong>Login</strong>, not Register. Self-registration is disabled and answers 403.
+      Set the same document matching method on every device: <code>binary</code> is the default and the right choice;
       <code>filename</code> breaks the moment you rename a file.
     </p>
   </section>
 
   <section id="limits">
-    <h2>What the free tier buys you</h2>
+    <h2>Free tier</h2>
     <div class="tables">
       <table>
         <thead>
@@ -285,12 +284,12 @@ npm run deploy</code></pre>
   </section>
 
   <section>
-    <h2>What it deliberately is not</h2>
+    <h2>What it is not</h2>
     <ul class="plain">
-      <li>No DRM, and no lending</li>
-      <li>No in-browser reader — your reader is your reader</li>
+      <li>No DRM, no lending</li>
+      <li>No in-browser reader</li>
       <li>No public catalog: every route except <code>/healthcheck</code> and the login page needs credentials</li>
-      <li>No open registration — the admin creates the accounts</li>
+      <li>No open registration: the admin creates the accounts</li>
     </ul>
     <p class="note" style="margin-top:1.25rem">
       <a href="https://github.com/pid1/tsundoku/blob/main/PLAN.md">PLAN.md</a> has the design reasoning,
@@ -302,7 +301,7 @@ npm run deploy</code></pre>
 
 <footer>
   <div class="inner">
-    <span>tsundoku — BSD-3-Clause. Not affiliated with the KOReader project.</span>
+    <span>tsundoku. BSD-3-Clause. Not affiliated with the KOReader project.</span>
     <span>
       <a href="https://github.com/pid1/tsundoku">Source</a> ·
       <a href="https://github.com/pid1/tsundoku/releases">Releases</a> ·
