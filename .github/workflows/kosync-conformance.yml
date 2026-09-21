@@ -1,0 +1,132 @@
+name: kosync conformance
+
+# Checks tsundoku's kosync implementation against the external protocol
+# specification at https://github.com/pid1/kosync-conformance, rather than
+# against tsundoku's own reading of KOReader's source.
+#
+# This is deliberately a separate workflow from ci.yml. ci.yml proves the code
+# does what tsundoku intends; this proves the wire protocol is what KOReader
+# expects. The verifier is maintained outside this repo precisely so that
+# passing it means something.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "src/routes/kosync.ts"
+      - "src/auth/**"
+      - "src/books/partialmd5.ts"
+      - "migrations/**"
+      - ".github/workflows/kosync-conformance.yml"
+  schedule:
+    # Weekly, so a change to the spec is noticed here rather than by a user.
+    - cron: "41 5 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fetch the conformance verifier
+        run: |
+          git clone --depth 1 https://github.com/pid1/kosync-conformance.git \
+            "$RUNNER_TEMP/kosync-conformance"
+          echo "spec commit: $(git -C "$RUNNER_TEMP/kosync-conformance" rev-parse HEAD)"
+
+      - name: Apply D1 migrations locally
+        run: npm run db:migrate:local
+
+      # wrangler dev serves the real Worker against local D1 and R2, so this
+      # exercises the same routing, auth and SQL a deployment would.
+      - name: Start the Worker
+        run: |
+          npx wrangler dev --port 8787 --ip 127.0.0.1 \
+            --var PEPPER:ci-pepper \
+            --var SESSION_KEY:ci-session \
+            --var ADMIN_USERNAME:ciuser \
+            --var ADMIN_PASSWORD:cipassword \
+            > "$RUNNER_TEMP/wrangler.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -m 2 http://127.0.0.1:8787/healthcheck | grep -q '"state":"OK"'; then
+              echo "ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "worker never became healthy" >&2
+          cat "$RUNNER_TEMP/wrangler.log" >&2
+          exit 1
+
+      # The admin account is seeded on the first request, so the healthcheck
+      # above is not enough; hit an authenticated route once to force it.
+      - name: Seed the admin account
+        run: |
+          curl -s -o /dev/null http://127.0.0.1:8787/users/auth \
+            -H "x-auth-user: ciuser" \
+            -H "x-auth-key: $(printf cipassword | md5sum | cut -d' ' -f1)" \
+            -H 'Accept: application/vnd.koreader.v1+json'
+
+      # --registration-off: tsundoku closes kosync self-registration by design
+      # (ALLOW_KOSYNC_REGISTER defaults to "0"); accounts are made by an admin
+      # in the web UI. Declaring it stops the verifier reporting a deliberate
+      # policy as a protocol failure.
+      - name: Verify
+        run: |
+          node "$RUNNER_TEMP/kosync-conformance/verify.mjs" \
+            --base-url http://127.0.0.1:8787 \
+            --user ciuser --password cipassword \
+            --registration-off \
+            --json "$RUNNER_TEMP/tsundoku-report.json"
+
+      - name: Summarise
+        if: always()
+        run: |
+          report="$RUNNER_TEMP/tsundoku-report.json"
+          [ -f "$report" ] || exit 0
+          node -e '
+            const r = require(process.argv[1]);
+            const s = r.summary;
+            const line = (t) => process.stdout.write(t + "\n");
+            line("## tsundoku vs. the kosync specification");
+            line("");
+            line(`Spec: https://github.com/pid1/kosync-conformance`);
+            line("");
+            line("| | |");
+            line("|---|---|");
+            line(`| passed | ${s.PASS} |`);
+            line(`| MUST failures | ${s.mustFailures} |`);
+            line(`| SHOULD failures | ${s.shouldFailures} |`);
+            line(`| skipped | ${s.SKIP} |`);
+            line(`| verdict | ${r.conformant ? "conformant" : "NOT conformant"} |`);
+            const failed = r.assertions.filter((a) => a.status === "FAIL");
+            if (failed.length) {
+              line("");
+              line("Known deviations from the reference server, none of which a");
+              line("KOReader client notices:");
+              line("");
+              line("| level | id | assertion |");
+              line("|---|---|---|");
+              for (const a of failed) line(`| ${a.level} | \`${a.id}\` | ${a.title} |`);
+            }
+          ' "$report" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kosync-conformance-report
+          path: ${{ runner.temp }}/tsundoku-report.json
+
+      - name: Worker log on failure
+        if: failure()
+        run: cat "$RUNNER_TEMP/wrangler.log" || true

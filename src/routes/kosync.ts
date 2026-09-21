@@ -25,8 +25,25 @@ interface ProgressPayload {
   metadata?: unknown;
 }
 
+/**
+ * kosync error codes. KOReader's client switches on the numeric `code`, not on
+ * the message, so an error body without one degrades to a generic failure in
+ * the UI. The numbers and their statuses come from the reference server's
+ * config/errors.lua; see SPEC.md section 6.1 in pid1/kosync-conformance.
+ */
+const ERR = {
+  unauthorized: { code: 2001, status: 401 },
+  invalidFields: { code: 2003, status: 403 },
+  documentMissing: { code: 2004, status: 403 },
+  registrationDisabled: { code: 2005, status: 402 },
+} as const;
+
+function kosyncError(err: { code: number; status: number }, message: string): Response {
+  return kosyncJson({ code: err.code, message }, err.status);
+}
+
 function unauthorized(): Response {
-  return kosyncJson({ message: "Unauthorized" }, 401);
+  return kosyncError(ERR.unauthorized, "Unauthorized");
 }
 
 async function requireUser(c: RouteContext): Promise<{ userId: string } | Response> {
@@ -47,9 +64,9 @@ export function registerKosyncRoutes(router: Router): void {
    */
   router.post("/users/create", (c) => {
     if (c.env.ALLOW_KOSYNC_REGISTER !== "1") {
-      return kosyncJson(
-        { message: "Registration is disabled. Ask the library administrator for an account." },
-        403,
+      return kosyncError(
+        ERR.registrationDisabled,
+        "Registration is disabled. Ask the library administrator for an account.",
       );
     }
     return kosyncJson({ message: "Registration is not implemented; ask the administrator." }, 403);
@@ -73,13 +90,24 @@ export function registerKosyncRoutes(router: Router): void {
     }
 
     const document = typeof payload.document === "string" ? payload.document.trim() : "";
-    if (!document) return kosyncJson({ message: "Field 'document' is required" }, 400);
+    if (!document) return kosyncError(ERR.documentMissing, "Field 'document' is required");
+
+    // The reference server stores a position only when percentage, progress and
+    // device are all present (`if percentage and progress and device then`) and
+    // answers 2003 otherwise. Accepting a partial push stored a position no
+    // client had actually reported. Presence is what is tested, not truthiness:
+    // a percentage of 0 and a progress of "0" are both legal values, and the
+    // reference accepts them because only nil is falsy in Lua.
+    const present = (v: unknown) => v !== undefined && v !== null;
+    const percentageRaw = Number(payload.percentage);
+    if (!present(payload.percentage) || !Number.isFinite(percentageRaw) || !present(payload.progress) || !present(payload.device)) {
+      return kosyncError(ERR.invalidFields, "Fields 'percentage', 'progress' and 'device' are required");
+    }
 
     // `progress` is a string even when it looks numeric: an XPointer for EPUB,
     // a page number for PDF. Coercing it to a number loses EPUB positions.
-    const progress = payload.progress === undefined || payload.progress === null ? "" : String(payload.progress);
-    const percentageRaw = Number(payload.percentage);
-    const percentage = Number.isFinite(percentageRaw) ? Math.min(1, Math.max(0, percentageRaw)) : 0;
+    const progress = String(payload.progress);
+    const percentage = Math.min(1, Math.max(0, percentageRaw));
 
     const metadata =
       payload.metadata && typeof payload.metadata === "object"
