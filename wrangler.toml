@@ -9,6 +9,26 @@ compatibility_date = "2026-08-01"
 directory = "./public"
 binding = "ASSETS"
 not_found_handling = "404-page"
+# ...with one exception that has to be spelled out. Because `not_found_handling`
+# is set and the compatibility date is past 2025-04-01, Cloudflare serves
+# assets for *navigation* requests (`Sec-Fetch-Mode: navigate`) without
+# invoking the Worker at all -- a billing optimisation for client-heavy apps.
+# That silently broke every Worker route reached by clicking a link: the
+# library's title link to /content/:id/:filename returned 404.html. It was
+# invisible from everywhere else, because fetch(), <img>/CSS covers,
+# <a download> and OPDS clients do not send that header, so they kept working.
+# Listing the Worker's own prefixes here restores Worker-first routing for
+# them; everything not listed keeps the asset-first, 404-page behaviour.
+run_worker_first = [
+  "/api/*",
+  "/content/*",
+  "/covers/*",
+  "/opds",
+  "/opds/*",
+  "/syncs/*",
+  "/users/*",
+  "/healthcheck",
+]
 
 [[r2_buckets]]
 binding = "BOOKS"
