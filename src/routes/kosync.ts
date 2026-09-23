@@ -2,7 +2,15 @@ import type { Router } from "../router.js";
 import type { RouteContext } from "../router.js";
 import { authenticateKosync } from "../auth/index.js";
 import { kosyncJson } from "../http/responses.js";
-import { getBookByPartialMd5, getProgress, putProgress } from "../db/queries.js";
+import {
+  getBookByPartialMd5,
+  getProgress,
+  putProgress,
+  registerAliases,
+  resolveIdentifiers,
+} from "../db/queries.js";
+import type { Identifier } from "../sync/identifiers.js";
+import { common, decodeList, encodeList, parseList, parseQuery } from "../sync/identifiers.js";
 
 /**
  * KOReader progress sync.
@@ -18,6 +26,7 @@ import { getBookByPartialMd5, getProgress, putProgress } from "../db/queries.js"
 
 interface ProgressPayload {
   document?: unknown;
+  identifiers?: unknown;
   progress?: unknown;
   percentage?: unknown;
   device?: unknown;
@@ -51,6 +60,21 @@ async function requireUser(c: RouteContext): Promise<{ userId: string } | Respon
   if (result.ok) return { userId: result.principal.userId };
   if (result.reason === "rate-limited") return kosyncJson({ message: "Too many requests" }, 429);
   return unauthorized();
+}
+
+/**
+ * The identifiers a request offered, `null` when it named none, or an error
+ * response when the list is malformed.
+ *
+ * The first entry must be the document, so `document` keeps meaning "the
+ * identifier I would send if you only took one" and an old client and a new one
+ * addressing the same file address the same record.
+ */
+function readIdentifiers(list: Identifier[] | null, document: string, field: string): Identifier[] | Response {
+  if (!list || list[0].value !== document) {
+    return kosyncError(ERR.invalidFields, `Field '${field}' is not a valid identifier list`);
+  }
+  return list;
 }
 
 export function registerKosyncRoutes(router: Router): void {
@@ -92,6 +116,13 @@ export function registerKosyncRoutes(router: Router): void {
     const document = typeof payload.document === "string" ? payload.document.trim() : "";
     if (!document) return kosyncError(ERR.documentMissing, "Field 'document' is required");
 
+    let identifiers: Identifier[] | null = null;
+    if (payload.identifiers !== undefined && payload.identifiers !== null) {
+      const read = readIdentifiers(parseList(payload.identifiers), document, "identifiers");
+      if (read instanceof Response) return read;
+      identifiers = read;
+    }
+
     // The reference server stores a position only when percentage, progress and
     // device are all present (`if percentage and progress and device then`) and
     // answers 2003 otherwise. Accepting a partial push stored a position no
@@ -114,7 +145,7 @@ export function registerKosyncRoutes(router: Router): void {
         ? JSON.stringify(payload.metadata).slice(0, 4000)
         : null;
 
-    const timestamp = await putProgress(c.env.DB, {
+    const position = {
       user_id: who.userId,
       document,
       percentage,
@@ -122,7 +153,28 @@ export function registerKosyncRoutes(router: Router): void {
       device: typeof payload.device === "string" ? payload.device.slice(0, 200) : "",
       device_id: typeof payload.device_id === "string" ? payload.device_id.slice(0, 200) : "",
       metadata,
-    });
+    };
+
+    if (identifiers) {
+      // A copy that shares any identifier with a record this account already
+      // holds writes to that record; otherwise the first identifier, which is
+      // the document, is what the record is created under.
+      const hit = await resolveIdentifiers(c.env.DB, who.userId, identifiers);
+      const canonical = hit?.document ?? identifiers[0].value;
+      const match = hit?.type ?? identifiers[0].type;
+      const timestamp = await putProgress(c.env.DB, {
+        ...position,
+        document: canonical,
+        identifiers: encodeList(identifiers),
+      });
+      await registerAliases(c.env.DB, who.userId, identifiers, canonical, timestamp);
+      // The canonical digest, which is not necessarily the one asked for, so the
+      // next request can address the record directly. No progress_match: on a
+      // write the caller is the writer.
+      return kosyncJson({ document: canonical, match, timestamp });
+    }
+
+    const timestamp = await putProgress(c.env.DB, position);
 
     return kosyncJson({ document, timestamp });
   });
@@ -130,6 +182,16 @@ export function registerKosyncRoutes(router: Router): void {
   router.get("/syncs/progress/:document", async (c) => {
     const who = await requireUser(c);
     if (who instanceof Response) return who;
+
+    // One parameter rather than repeated ones: a GET has no body and repeated
+    // query parameters are not reliably ordered, and the order is the client's
+    // preference.
+    const ids = c.url.searchParams.get("ids");
+    if (ids !== null) {
+      const read = readIdentifiers(parseQuery(ids), c.params.document, "ids");
+      if (read instanceof Response) return read;
+      return matchedProgress(c, who.userId, read);
+    }
 
     const row = await getProgress(c.env.DB, who.userId, c.params.document);
     // KOReader treats an empty 200 as "nothing stored yet", which is the honest
@@ -157,5 +219,41 @@ export function registerKosyncRoutes(router: Router): void {
     const row = await getProgress(c.env.DB, who.userId, c.params.document);
     const book = await getBookByPartialMd5(c.env.DB, c.params.document);
     return kosyncJson({ progress: row, book: book ? { id: book.id, title: book.title } : null });
+  });
+}
+
+/**
+ * A read that named identifiers: the record resolved through them, with both
+ * how it was found and what the reader has in common with whoever wrote the
+ * position it holds.
+ *
+ * `match` and `progress_match` answer different questions and routinely differ.
+ * A reader can match a record on its own content digest -- the record is
+ * literally its file -- while the position stored there was written by a
+ * different edition that only shared the metadata digest. Only `progress_match`
+ * bears on whether the xpointer can be followed.
+ */
+async function matchedProgress(c: RouteContext, userId: string, identifiers: Identifier[]): Promise<Response> {
+  const hit = await resolveIdentifiers(c.env.DB, userId, identifiers);
+  if (!hit) return kosyncJson({});
+
+  const row = await getProgress(c.env.DB, userId, hit.document);
+  if (!row) return kosyncJson({});
+
+  // Compared against the identifiers stored beside the position they were
+  // written with, so they are never attributed to a string their owner did not
+  // write. When the current position was written by a request that named none,
+  // the record is treated as written by the digest it is stored under.
+  const writer = row.identifiers_for === row.progress ? decodeList(row.identifiers) : null;
+
+  return kosyncJson({
+    document: row.document,
+    progress: row.progress,
+    percentage: row.percentage,
+    device: row.device,
+    device_id: row.device_id,
+    timestamp: row.updated_at,
+    match: hit.type,
+    progress_match: writer ? (common(identifiers, writer) ?? "none") : hit.type,
   });
 }
