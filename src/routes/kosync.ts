@@ -169,7 +169,14 @@ export function registerKosyncRoutes(router: Router): void {
         document: canonical,
         identifiers: encodeList(identifiers),
       });
-      await registerAliases(c.env.DB, who.userId, identifiers, canonical, timestamp);
+      // Only from the match down. An identifier the caller ranks above the one
+      // that matched is never registered: matching on a weak identifier is a
+      // guess, and an alias is never repointed, so gluing the caller's stronger
+      // digests to a wrong guess would make it permanent. Types are unique in a
+      // validated list, so the match locates exactly one entry. A create matched
+      // nothing and the record is the caller's own, so all of them describe it.
+      const from = hit ? identifiers.findIndex((i) => i.type === hit.type) : 0;
+      await registerAliases(c.env.DB, who.userId, identifiers.slice(from), canonical, timestamp);
       // The canonical digest, which is not necessarily the one asked for, so the
       // next request can address the record directly. No progress_match: on a
       // write the caller is the writer.
