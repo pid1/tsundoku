@@ -10,6 +10,13 @@
 export interface Identifier {
   type: string;
   value: string;
+  /**
+   * The client does not consider this identifier enough to claim a record that
+   * already exists, so a push that resolves through it alone writes under its
+   * own `document` instead. Carried only in a PUT body: adoption is a property
+   * of a write, so the read's flattened form has no equivalent.
+   */
+  weak?: boolean;
 }
 
 export const MAX_IDENTIFIERS = 8;
@@ -37,11 +44,15 @@ export function parseList(raw: unknown): Identifier[] | null {
   const seen = new Set<string>();
   for (const entry of raw) {
     if (!entry || typeof entry !== "object") return null;
-    const { type, value } = entry as { type?: unknown; value?: unknown };
+    const { type, value, weak } = entry as { type?: unknown; value?: unknown; weak?: unknown };
     if (!validType(type) || !validValue(value)) return null;
+    // A `weak` the server cannot read is rejected rather than taken as absent:
+    // silently treating a weak identifier as strong is what the flag exists to
+    // stop, and it would be invisible to the client that sent it.
+    if (weak !== undefined && typeof weak !== "boolean") return null;
     if (seen.has(type)) return null;
     seen.add(type);
-    list.push({ type, value });
+    list.push(weak === true ? { type, value, weak: true } : { type, value });
   }
   return list;
 }

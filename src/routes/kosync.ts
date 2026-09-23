@@ -162,8 +162,15 @@ export function registerKosyncRoutes(router: Router): void {
       // holds writes to that record; otherwise the record is created under
       // `document`, which the list is required to contain.
       const hit = await resolveIdentifiers(c.env.DB, who.userId, identifiers);
-      const canonical = hit?.document ?? document;
-      const match = hit?.type ?? identifiers.find((i) => i.value === document)!.type;
+      // Types are unique in a validated list, so the match locates exactly one
+      // entry. A walk that ends on an entry the caller marked weak seeds this
+      // reader without claiming the record: an identifier that can name a
+      // different work shows a copy where the other one got to, and stops
+      // there. The push writes under `document` as though nothing had matched.
+      const at = hit ? identifiers.findIndex((i) => i.type === hit.type) : -1;
+      const adopt = at >= 0 && !identifiers[at]!.weak;
+      const canonical = adopt ? hit!.document : document;
+      const match = adopt ? hit!.type : identifiers.find((i) => i.value === document)!.type;
       const timestamp = await putProgress(c.env.DB, {
         ...position,
         document: canonical,
@@ -172,11 +179,10 @@ export function registerKosyncRoutes(router: Router): void {
       // Only from the match down. An identifier the caller ranks above the one
       // that matched is never registered: matching on a weak identifier is a
       // guess, and an alias is never repointed, so gluing the caller's stronger
-      // digests to a wrong guess would make it permanent. Types are unique in a
-      // validated list, so the match locates exactly one entry. A create matched
-      // nothing and the record is the caller's own, so all of them describe it.
-      const from = hit ? identifiers.findIndex((i) => i.type === hit.type) : 0;
-      await registerAliases(c.env.DB, who.userId, identifiers.slice(from), canonical, timestamp);
+      // digests to a wrong guess would make it permanent. A record written
+      // under `document` is the caller's own, so all of them describe it -- the
+      // weak value among them already resolves elsewhere and keeps doing so.
+      await registerAliases(c.env.DB, who.userId, identifiers.slice(adopt ? at : 0), canonical, timestamp);
       // The canonical digest, which is not necessarily the one asked for, so the
       // next request can address the record directly. No progress_match: on a
       // write the caller is the writer.
