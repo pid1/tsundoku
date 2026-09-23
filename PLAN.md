@@ -696,6 +696,37 @@ to match *between the user's own devices*; the server just stores whatever strin
 it is given. Keep that decoupling in the code, so a wrong hash degrades the UI
 rather than breaking sync.
 
+### Optional identifier matching
+
+**[changed in build]** Both progress endpoints take an optional, ordered list of
+document identifiers, so a recompressed or re-downloaded copy of a book keeps
+its position instead of starting a new record under a new digest. `PUT` takes an
+`identifiers` array of `{type, value}`; `GET` takes the same list flattened into
+one `ids` query parameter, because a GET has no body and repeated query
+parameters are not reliably ordered. A request that names identifiers gets
+`match` and `progress_match` back.
+
+This tracks `koreader/koreader-sync-server#55`, which is **open and unmerged**,
+and is specified in `pid1/kosync-conformance` SPEC.md section 5.8. **A request
+that names none is answered exactly as it was before**, with neither field and
+no alias followed, so an existing KOReader client sees no change of any kind.
+If #55 lands in a different shape, this follows it rather than the other way
+round.
+
+`type` is an opaque label chosen by the client: stored and echoed without being
+interpreted, so a new kind of identifier needs no server change. The first entry
+must equal `document`, which keeps `document` meaning "the identifier I would
+send if you only took one" -- an old client and a new one addressing the same
+file address the same record.
+
+Identifiers other than the record's own become per-account aliases in
+`document_aliases`. An alias is **created and never repointed**, so a digest
+that has resolved to a record keeps resolving to it, and it never shadows a
+digest that is a document in its own right. `match` says how the record was
+found; `progress_match` says what the reader has in common with whoever wrote
+the position it holds, which is a different question and the only one that bears
+on whether the xpointer can be followed.
+
 ---
 
 ## 10. Web UI
