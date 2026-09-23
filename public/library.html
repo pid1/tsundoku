@@ -119,7 +119,9 @@ function render(books) {
         "div",
         { class: "card" },
         cover,
-        el("a", { class: "t", href, text: book.title }),
+        // The title opens the editor, same as the cover. The download has its own
+        // button below, so the title does not need to be a second way to it.
+        el("button", { type: "button", class: "t", title: "Edit metadata", text: book.title, onclick: () => openEditor(book) }),
         el("div", { class: "a", text: book.authors.join(", ") || "Unknown author" }),
         el(
           "div",
@@ -128,9 +130,8 @@ function render(books) {
           `${book.format.toUpperCase()} - ${formatBytes(book.byte_size)} - ${formatDate(book.added_at)}`,
         ),
         book.index_error ? el("div", { class: "meta", style: "color:var(--danger)", text: book.index_error }) : null,
-        // The title already links to the file, but nothing says so. This is the
-        // affordance: `download` names the file rather than trusting the
-        // Content-Disposition the route happens to send.
+        // The only link to the file. `download` names the file rather than
+        // trusting the Content-Disposition the route happens to send.
         el("a", {
           class: "dl",
           href,

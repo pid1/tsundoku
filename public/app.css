@@ -130,7 +130,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 0.5rem;
   overflow: hidden;
 }
-.card .t { font-size: 0.9rem; line-height: 1.3; }
+/* A button that reads as a link: the title opens the metadata editor. */
+.card .t {
+  font-size: 0.9rem;
+  line-height: 1.3;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--accent);
+  text-align: left;
+  text-decoration: underline;
+}
+.card .cover { cursor: pointer; }
 .card .a { font-size: 0.8rem; color: var(--muted); }
 .card .meta { font-size: 0.72rem; color: var(--muted); }
 /* A link that reads as a button: the download is a plain <a> so that Save-link-as,
