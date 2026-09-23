@@ -24,6 +24,23 @@ describe("parseList", () => {
     expect(parseList(entries(9))).toBeNull();
   });
 
+  it("carries the weak flag, and treats false as strong", () => {
+    const list = parseList([
+      { type: "content", value: "C1" },
+      { type: "structure", value: "S1", weak: false },
+      { type: "metadata", value: "M", weak: true },
+    ]);
+    expect(list?.map((i) => i.weak)).toEqual([undefined, undefined, true]);
+  });
+
+  it("rejects a weak that is not a boolean", () => {
+    // Taking "yes" or 1 for absent would read a weak identifier as strong,
+    // which is the clobber the flag exists to stop.
+    expect(parseList([{ type: "content", value: "C1", weak: "yes" }])).toBeNull();
+    expect(parseList([{ type: "content", value: "C1", weak: 1 }])).toBeNull();
+    expect(parseList([{ type: "content", value: "C1", weak: null }])).toBeNull();
+  });
+
   it("rejects an empty list, a duplicate type and a malformed entry", () => {
     expect(parseList([])).toBeNull();
     expect(parseList([{ type: "content", value: "A" }, { type: "content", value: "B" }])).toBeNull();
@@ -39,6 +56,11 @@ describe("parseQuery", () => {
       { type: "content", value: "C1" },
       { type: "structure", value: "S1" },
     ]);
+  });
+
+  it("has no grammar for weak: adoption is a property of a write", () => {
+    expect(parseQuery("content:C1,metadata:M:true")).toBeNull();
+    expect(parseQuery("content:C1")?.[0]).toEqual({ type: "content", value: "C1" });
   });
 
   it("rejects an entry with no type and an empty parameter", () => {
