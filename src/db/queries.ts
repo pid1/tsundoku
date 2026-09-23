@@ -617,8 +617,9 @@ export async function resolveIdentifiers(
 }
 
 /**
- * Register every offered identifier that is not the record's own as an alias
- * for it.
+ * Register the offered identifiers that are not the record's own as aliases for
+ * it. The caller passes only the entries from the match down; see the call
+ * site.
  *
  * An alias is created and never repointed, so a digest that has resolved to a
  * record keeps resolving to it; the one exception is an alias whose target has
