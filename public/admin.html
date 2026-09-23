@@ -33,7 +33,7 @@
 
   <h2>Users</h2>
   <div class="panel">
-    <table>
+    <table class="stack">
       <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th></th></tr></thead>
       <tbody id="users"></tbody>
     </table>
@@ -81,26 +81,28 @@ async function loadUsers() {
       el(
         "tr",
         {},
-        el("td", { class: "mono", text: user.username }),
-        el("td", { text: user.display_name || "" }),
-        el("td", {}, el("span", { class: "pill", text: user.role })),
-        el("td", { text: user.disabled ? "disabled" : `since ${formatDate(user.created_at)}` }),
+        el("td", { class: "mono", "data-label": "Username", text: user.username }),
+        el("td", { "data-label": "Name", text: user.display_name || "" }),
+        el("td", { "data-label": "Role" }, el("span", { class: "pill", text: user.role })),
+        el("td", { "data-label": "Status", text: user.disabled ? "disabled" : `since ${formatDate(user.created_at)}` }),
         el(
           "td",
           {},
-          el("button", {
-            class: "secondary",
-            text: "Reset password",
-            onclick: () => resetPassword(user),
-          }),
-          " ",
-          el("button", {
-            class: "secondary",
-            text: user.disabled ? "Enable" : "Disable",
-            onclick: () => setDisabled(user, !user.disabled),
-          }),
-          " ",
-          el("button", { class: "danger", text: "Delete", onclick: () => remove(user) }),
+          el(
+            "div",
+            { class: "actions" },
+            el("button", {
+              class: "secondary",
+              text: "Reset password",
+              onclick: () => resetPassword(user),
+            }),
+            el("button", {
+              class: "secondary",
+              text: user.disabled ? "Enable" : "Disable",
+              onclick: () => setDisabled(user, !user.disabled),
+            }),
+            el("button", { class: "danger", text: "Delete", onclick: () => remove(user) }),
+          ),
         ),
       ),
     ),
