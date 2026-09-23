@@ -66,12 +66,14 @@ async function requireUser(c: RouteContext): Promise<{ userId: string } | Respon
  * The identifiers a request offered, `null` when it named none, or an error
  * response when the list is malformed.
  *
- * The first entry must be the document, so `document` keeps meaning "the
- * identifier I would send if you only took one" and an old client and a new one
- * addressing the same file address the same record.
+ * One entry has to be the document, so `document` keeps meaning "the identifier
+ * I would send if you only took one" and the record stays reachable by a client
+ * that names none. Which entry does not matter: position carries preference, so
+ * a client whose document digest is its weakest identifier can still rank the
+ * others above it.
  */
 function readIdentifiers(list: Identifier[] | null, document: string, field: string): Identifier[] | Response {
-  if (!list || list[0].value !== document) {
+  if (!list || !list.some((identifier) => identifier.value === document)) {
     return kosyncError(ERR.invalidFields, `Field '${field}' is not a valid identifier list`);
   }
   return list;
@@ -157,11 +159,11 @@ export function registerKosyncRoutes(router: Router): void {
 
     if (identifiers) {
       // A copy that shares any identifier with a record this account already
-      // holds writes to that record; otherwise the first identifier, which is
-      // the document, is what the record is created under.
+      // holds writes to that record; otherwise the record is created under
+      // `document`, which the list is required to contain.
       const hit = await resolveIdentifiers(c.env.DB, who.userId, identifiers);
-      const canonical = hit?.document ?? identifiers[0].value;
-      const match = hit?.type ?? identifiers[0].type;
+      const canonical = hit?.document ?? document;
+      const match = hit?.type ?? identifiers.find((i) => i.value === document)!.type;
       const timestamp = await putProgress(c.env.DB, {
         ...position,
         document: canonical,
