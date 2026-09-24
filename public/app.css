@@ -162,6 +162,28 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); }
 th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+.actions button { white-space: nowrap; }
+
+/* On a phone a table with a column of buttons is wider than the screen. A
+   `stack` table turns each row into a card, and each cell labels itself from
+   its data-label. */
+@media (max-width: 640px) {
+  table.stack thead { display: none; }
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; }
+  table.stack tr { padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+  table.stack td { display: flex; gap: 0.75rem; padding: 0.2rem 0; border-bottom: 0; }
+  table.stack td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 6.5rem;
+    color: var(--muted);
+    font: 600 0.72rem/1.9 ui-serif, Georgia, serif;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  table.stack td[data-label]:empty { display: none; }
+  table.stack .actions { justify-content: flex-start; padding-top: 0.4rem; }
+}
 
 .toolbar { display: flex; gap: 0.6rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
 .toolbar input[type="search"] { flex: 1 1 16rem; }
