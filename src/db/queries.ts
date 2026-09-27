@@ -1,4 +1,5 @@
 import type { Book, BookView, DeviceProgressRow, NavEntry, Page, ProgressRow, User } from "../types.js";
+import type { Identifier } from "../sync/identifiers.js";
 import { nowSeconds, sortAuthor, sortTitle, ulid } from "../util.js";
 
 /* -------------------------------------------------------------------------- */
@@ -493,24 +494,48 @@ export function getProgress(db: D1Database, userId: string, document: string): P
 
 export async function putProgress(
   db: D1Database,
-  row: Omit<ProgressRow, "updated_at"> & { updated_at?: number },
+  row: Omit<ProgressRow, "updated_at" | "identifiers" | "identifiers_for"> & {
+    updated_at?: number;
+    /** Encoded list of the identifiers this push named, or omitted when it named none. */
+    identifiers?: string | null;
+  },
 ): Promise<number> {
   const ts = row.updated_at ?? nowSeconds();
+  const identifiers = row.identifiers ?? null;
   // COALESCE on metadata: KOReader only sends it when "Send document metadata"
   // is enabled, and a push without it must not wipe what we already hold.
+  //
+  // COALESCE on the identifier pair for a different reason: a push that names
+  // none leaves the previous writer's list in place, and the stale
+  // `identifiers_for` then no longer matches `progress`, which is what tells a
+  // later read to stop attributing those identifiers to a string their owner
+  // did not write.
   await db
     .prepare(
-      `INSERT INTO progress (user_id, document, percentage, progress, device, device_id, metadata, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO progress (user_id, document, percentage, progress, device, device_id, metadata, updated_at, identifiers, identifiers_for)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(user_id, document) DO UPDATE SET
-         percentage = excluded.percentage,
-         progress   = excluded.progress,
-         device     = excluded.device,
-         device_id  = excluded.device_id,
-         metadata   = COALESCE(excluded.metadata, progress.metadata),
-         updated_at = excluded.updated_at`,
+         percentage      = excluded.percentage,
+         progress        = excluded.progress,
+         device          = excluded.device,
+         device_id       = excluded.device_id,
+         metadata        = COALESCE(excluded.metadata, progress.metadata),
+         updated_at      = excluded.updated_at,
+         identifiers     = COALESCE(excluded.identifiers, progress.identifiers),
+         identifiers_for = COALESCE(excluded.identifiers_for, progress.identifiers_for)`,
     )
-    .bind(row.user_id, row.document, row.percentage, row.progress, row.device, row.device_id, row.metadata, ts)
+    .bind(
+      row.user_id,
+      row.document,
+      row.percentage,
+      row.progress,
+      row.device,
+      row.device_id,
+      row.metadata,
+      ts,
+      identifiers,
+      identifiers === null ? null : row.progress,
+    )
     .run();
 
   // Same position, kept per device instead of last-writer-wins, so the Sync
@@ -531,6 +556,105 @@ export async function putProgress(
     .run();
 
   return ts;
+}
+
+/* -------------------------------------------------------------------------- */
+/* document identifiers (kosync, proposed)                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The record an offered identifier list resolves to, and the caller's own label
+ * for the identifier that found it.
+ */
+export interface IdentifierMatch {
+  document: string;
+  type: string;
+}
+
+/**
+ * Walk the identifiers in the caller's order, trying each as a document before
+ * following it through the alias table, and stop at the first hit.
+ *
+ * One round trip asks which of the offered values are documents in their own
+ * right and which are aliases whose target still exists. The order is the
+ * client's preference and decides between them, so it is applied here rather
+ * than in SQL.
+ */
+export async function resolveIdentifiers(
+  db: D1Database,
+  userId: string,
+  identifiers: Identifier[],
+): Promise<IdentifierMatch | null> {
+  const values = identifiers.map((i) => i.value);
+  const marks = values.map(() => "?").join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT document AS value, document AS target, 1 AS is_document
+         FROM progress
+        WHERE user_id = ? AND document IN (${marks})
+        UNION ALL
+       SELECT a.alias AS value, a.document AS target, 0 AS is_document
+         FROM document_aliases a
+         JOIN progress p ON p.user_id = a.user_id AND p.document = a.document
+        WHERE a.user_id = ? AND a.alias IN (${marks})`,
+    )
+    .bind(userId, ...values, userId, ...values)
+    .all<{ value: string; target: string; is_document: number }>();
+
+  const documents = new Set<string>();
+  const aliases = new Map<string, string>();
+  for (const row of results ?? []) {
+    if (row.is_document) documents.add(row.value);
+    else aliases.set(row.value, row.target);
+  }
+
+  for (const identifier of identifiers) {
+    if (documents.has(identifier.value)) return { document: identifier.value, type: identifier.type };
+    const target = aliases.get(identifier.value);
+    if (target !== undefined) return { document: target, type: identifier.type };
+  }
+  return null;
+}
+
+/**
+ * Register the offered identifiers that are not the record's own as aliases for
+ * it. The caller passes only the entries from the match down; see the call
+ * site.
+ *
+ * An alias is created and never repointed, so a digest that has resolved to a
+ * record keeps resolving to it; the one exception is an alias whose target has
+ * since been deleted. Both rules are one statement per identifier rather than a
+ * read followed by a write: the primary key is what makes "create, do not
+ * repoint" hold under a concurrent push, and the `DO UPDATE ... WHERE` is what
+ * lets a dangling alias be replaced without a race.
+ *
+ * The `NOT EXISTS` on the insert is the other half of the same idea: an alias
+ * must never shadow a digest that is a document in its own right.
+ */
+export async function registerAliases(
+  db: D1Database,
+  userId: string,
+  identifiers: Identifier[],
+  canonical: string,
+  createdAt: number,
+): Promise<void> {
+  const statement = db.prepare(
+    `INSERT INTO document_aliases (user_id, alias, id_type, document, created_at)
+     SELECT ?, ?, ?, ?, ?
+      WHERE NOT EXISTS (SELECT 1 FROM progress WHERE user_id = ? AND document = ?)
+     ON CONFLICT(user_id, alias) DO UPDATE SET
+       id_type    = excluded.id_type,
+       document   = excluded.document,
+       created_at = excluded.created_at
+      WHERE NOT EXISTS (
+        SELECT 1 FROM progress
+         WHERE user_id = document_aliases.user_id AND document = document_aliases.document)`,
+  );
+
+  const writes = identifiers
+    .filter((i) => i.value !== canonical)
+    .map((i) => statement.bind(userId, i.value, i.type, canonical, createdAt, userId, i.value));
+  if (writes.length > 0) await db.batch(writes);
 }
 
 /** Users who have at least one device position, for the Sync page's filter. */
