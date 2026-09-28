@@ -1,0 +1,6 @@
+# Read by .github/workflows/cf-fallback.yml to decide whether Cloudflare
+# already published the current commit. It must never be cached, or the
+# fallback would deploy on top of a good build (or skip a missing one).
+/.build-id
+  Cache-Control: no-store
+  Content-Type: text/plain; charset=utf-8

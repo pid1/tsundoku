@@ -89,7 +89,7 @@ non-negotiable because authentication is HTTP Basic.
 ### Routine work
 
 ```bash
-npm run deploy           # wrangler deploy
+npm run deploy           # ./build.sh, then wrangler deploy (push to main does this too)
 npm run db:migrate       # apply new migrations
 npm run dev              # local dev server
 npm run typecheck        # tsc --noEmit

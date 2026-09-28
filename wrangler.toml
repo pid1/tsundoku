@@ -1,3 +1,8 @@
+# Cloudflare Workers Builds deploys this on push to main (build command
+# ./build.sh, deploy command npx wrangler deploy). The workflow in
+# .github/workflows/cf-fallback.yml is the fallback for when that does not
+# happen, and no-ops when Cloudflare already published the commit.
+
 name = "tsundoku"
 main = "src/index.ts"
 compatibility_date = "2026-08-01"
