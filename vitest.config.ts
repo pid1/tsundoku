@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { cloudflareTest } from "@cloudflare/vitest-plugin";
 
 // Tests run inside workerd, so DecompressionStream, crypto.subtle.digest("MD5")
 // and the D1/R2 bindings behave exactly as they will in production. Testing the
