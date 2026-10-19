@@ -73,7 +73,8 @@ export default {
         const response = await matched.handler({ request, env, ctx, url, params: matched.params });
         return securityHeaders(response);
       } catch (e) {
-        console.error("unhandled error", url.pathname, e);
+        // JSON-encode the path so nothing in it can break a log line.
+        console.error("unhandled error", JSON.stringify(url.pathname), e);
         return securityHeaders(
           new Response(JSON.stringify({ error: "Internal error" }), {
             status: 500,

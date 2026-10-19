@@ -156,7 +156,7 @@ tsundoku/
     http/
       responses.ts  ranges.ts  etag.ts
   test/
-    unit/                 vitest + @cloudflare/vitest-pool-workers
+    unit/                 vitest + @cloudflare/vitest-plugin
     conformance/          scripts run against a deployed instance
 ```
 
@@ -819,9 +819,9 @@ of each other and can be reordered.
 
 ### Testing
 
-- **Unit** (`vitest` + `@cloudflare/vitest-pool-workers`, which runs tests inside
+- **Unit** (`vitest` + `@cloudflare/vitest-plugin`, which runs tests inside
   workerd so `DecompressionStream`, `crypto.subtle.digest('MD5')` and the D1/R2
-  bindings are the real ones; note that 0.22 replaced `defineWorkersConfig` with
+  bindings are the real ones; note that its predecessor, `@cloudflare/vitest-pool-workers` 0.22, replaced `defineWorkersConfig` with
   a `cloudflareTest` Vite plugin, and its bundled workerd sets a ceiling on
   `compatibility_date`): XML scanner, ZIP reader, OPF field extraction,
   partial-MD5 vectors, OPDS serializers against golden files, kosync
