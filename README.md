@@ -50,7 +50,8 @@ them.
 
 ## Setup
 
-Needs Node 22+ and a Cloudflare account.
+Needs Node 24 with npm 11.10 or later, which reads the release cooldown in
+.npmrc, and a Cloudflare account.
 
 ```bash
 git clone https://github.com/pid1/tsundoku && cd tsundoku

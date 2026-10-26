@@ -89,7 +89,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: steps.check.outputs.deploy == 'true'
         with:
-          node-version: 24
+          # sadr: cooldown exception CVE-2026-105481, CVE-2026-105482, CVE-2026-105483, CVE-2026-106069, CVE-2026-106072, CVE-2026-106073, CVE-2026-106074, CVE-2026-111497, lift when 24.22.1 clears the cooldown
+          node-version: 24.22.1
 
       # Deploy with the wrangler version package-lock.json pins, the same one
       # Workers Builds installs, rather than whatever npx resolves today.
