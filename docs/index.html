@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tsundoku</title>
-<meta name="description" content="An OPDS 1.2 and 2.0 catalog, an upload UI, and a KOReader-compatible progress sync server. One Cloudflare Worker, inside the free tier.">
+<meta name="description" content="A home for your ebooks: an OPDS 2.0 catalog, KOReader progress sync and a web reader that syncs with it. One Cloudflare Worker, inside the free tier.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%237a4b2a'/%3E%3Cg fill='%23fbfaf7'%3E%3Crect x='14' y='40' width='36' height='7' rx='1.5'/%3E%3Crect x='17' y='31' width='30' height='7' rx='1.5' opacity='.88'/%3E%3Crect x='20' y='22' width='24' height='7' rx='1.5' opacity='.76'/%3E%3Crect x='23' y='13' width='18' height='7' rx='1.5' opacity='.64'/%3E%3C/g%3E%3C/svg%3E">
 <meta property="og:title" content="tsundoku">
-<meta property="og:description" content="OPDS catalog, KOReader progress sync and an upload UI, in one Cloudflare Worker on the free tier.">
+<meta property="og:description" content="OPDS 2.0 catalog, KOReader progress sync and a web reader, in one Cloudflare Worker on the free tier.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://pid1.github.io/tsundoku/">
 <meta property="og:image" content="https://pid1.github.io/tsundoku/screenshots/library.png">
@@ -114,9 +114,24 @@ footer .inner { max-width: 1040px; margin: 0 auto; display: flex; gap: 1rem; fle
   .hero .kana { font-size: 2.1rem; }
   .hero .lede { font-size: 1.05rem; }
 }
+
+ol.flow { counter-reset: step; list-style: none; padding: 0; margin: 1.5rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.1rem; }
+ol.flow li { counter-increment: step; position: relative; padding: 2.4rem 1.1rem 1.1rem; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); color: var(--muted); font-size: .95rem; }
+ol.flow li::before { content: counter(step); position: absolute; top: .8rem; left: 1.1rem; font-weight: 700; color: var(--accent); }
+ul.principles { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; }
+ul.principles li { color: var(--muted); }
+ul.principles strong { color: var(--ink); }
+details { margin: 0 0 1rem; }
+details summary { cursor: pointer; color: var(--accent); margin-bottom: .75rem; }
 </style>
 </head>
 <body>
+
+<!--
+  This page mirrors README.md. Each <section> names the README section it
+  follows in a `sync:` comment; .claude/skills/readme-website-sync explains
+  how to keep the two in step. Change the README first, then this page.
+-->
 
 <header class="top">
   <a class="brand" href="./">
@@ -132,6 +147,7 @@ footer .inner { max-width: 1040px; margin: 0 auto; display: flex; gap: 1rem; fle
     tsundoku
   </a>
   <nav>
+    <a href="#features">Features</a>
     <a href="#screenshots">Screenshots</a>
     <a href="#install">Install</a>
     <a href="#readers">Readers</a>
@@ -142,26 +158,41 @@ footer .inner { max-width: 1040px; margin: 0 auto; display: flex; gap: 1rem; fle
 
 <main>
 
+  <!-- sync: README header (name line) and "What is tsundoku?" -->
   <section class="hero">
     <p class="kana">積ん読</p>
     <h1>tsundoku</h1>
-    <p class="gloss">acquiring books and letting them pile up unread</p>
+    <p class="gloss">pronounced tsoon-doh-koo: Japanese for buying books and letting them pile up unread</p>
     <p class="lede">
-      An <strong>OPDS 1.2 and 2.0 catalog</strong>, an authenticated <strong>upload UI</strong>,
-      and a <strong>KOReader-compatible progress sync server</strong>.
+      A home for your ebooks. Upload them once, read them on any e-reader, and pick up on one device
+      where you stopped on another.
     </p>
     <p class="stack">
-      One Cloudflare Worker, one R2 bucket, one D1 database, inside the free tier.
+      It runs on Cloudflare's free tier: one Worker, one R2 bucket and one D1 database. It's built for a
+      household, not the public: every page but the sign-in page needs an account, and an administrator
+      creates the accounts.
     </p>
     <div class="cta">
       <a class="btn" href="https://github.com/pid1/tsundoku">View on GitHub</a>
       <a class="btn secondary" href="#install">How to install it</a>
-      <a class="tag" href="https://github.com/pid1/tsundoku/releases/tag/v1.0.0">v1.0.0</a>
+      <a class="tag" href="https://github.com/pid1/tsundoku/releases">Releases</a>
       <a class="tag" href="https://github.com/pid1/tsundoku/blob/main/LICENSE">BSD-3-Clause</a>
     </div>
   </section>
 
+  <!-- sync: README "From upload to reading" -->
   <section>
+    <h2>From upload to reading</h2>
+    <ol class="flow">
+      <li>You drag a book onto the upload page. The title, authors and cover are read out of the file.</li>
+      <li>Your e-reader finds it in the catalog and downloads it.</li>
+      <li>KOReader saves your place to tsundoku as you read.</li>
+      <li>You open the same book on your phone, in the browser, at the same paragraph.</li>
+    </ol>
+  </section>
+
+  <!-- sync: README "What it does" -->
+  <section id="features">
     <h2>What it does</h2>
     <div class="features">
       <div class="panel">
@@ -169,101 +200,143 @@ footer .inner { max-width: 1040px; margin: 0 auto; display: flex; gap: 1rem; fle
           <path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H9a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H3z"/>
           <path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H15a3 3 0 0 0-3 3v12a2.5 2.5 0 0 1 2.5-2.5H21z"/>
         </svg>
-        <h3>Browse and download</h3>
-        <p>OPDS 1.2 for KOReader, FBReader, Panels, Moon+ and PocketBook; OPDS 2.0 JSON for Thorium. Covers and metadata come along.</p>
-      </div>
-      <div class="panel">
-        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-          <path d="M20 11a8 8 0 0 0-14.7-4.4M4 13a8 8 0 0 0 14.7 4.4"/>
-          <path d="M4 4v4h4M20 20v-4h-4"/>
-        </svg>
-        <h3>Sync reading position</h3>
-        <p>KOReader's own kosync protocol, so the Progress sync plugin needs only the base address. Every device's position on every book, and whether they actually agree.</p>
+        <h3>An OPDS 2.0 catalog</h3>
+        <p>Browse and download from KOReader, CrossPoint, Thorium and any other reader that speaks OPDS 2.0. Covers and metadata come along.</p>
       </div>
       <div class="panel">
         <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
           <path d="M12 16V4M8 8l4-4 4 4"/>
           <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/>
         </svg>
-        <h3>Upload through a web UI</h3>
-        <p>EPUB and CBZ have their metadata and cover art read out of the file server-side. Files over 95&nbsp;MB take the R2 multipart path automatically.</p>
+        <h3>Upload once</h3>
+        <p>Metadata and covers are read out of EPUB and CBZ files on upload, without downloading them. Files over 95&nbsp;MB go up in parts automatically.</p>
+      </div>
+      <div class="panel">
+        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M20 11a8 8 0 0 0-14.7-4.4M4 13a8 8 0 0 0 14.7 4.4"/>
+          <path d="M4 4v4h4M20 20v-4h-4"/>
+        </svg>
+        <h3>Sync reading positions</h3>
+        <p>KOReader's own kosync protocol, so its Progress sync plugin needs only the base address. The Sync page shows every device's position on every book, and whether they agree.</p>
+      </div>
+      <div class="panel">
+        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <rect x="6" y="2.5" width="12" height="19" rx="2"/>
+          <path d="M9 7h6M9 10.5h6M9 14h4"/>
+        </svg>
+        <h3>Read in the browser</h3>
+        <p>EPUB, CBZ, MOBI, AZW3 and FB2 open in the browser, and EPUB and CBZ positions sync with KOReader. Opening a book never overwrites your e-reader's place; only turning a page saves.</p>
+      </div>
+      <div class="panel">
+        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M4 19 9.5 5h1L16 19M6.2 14h7.6"/>
+          <path d="M17 19v-6.5a2.5 2.5 0 0 1 5 0V19M17 15.5h5"/>
+        </svg>
+        <h3>Your reading settings</h3>
+        <p>The publisher's fonts or Atkinson Hyperlegible Next, saved to your account. Light or dark, text size, spacing, line length up to full width, one or two columns, margins and the status bar, set for each device from the <strong>Aa</strong> button or on Preferences with a live preview.</p>
+      </div>
+      <div class="panel">
+        <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M12 3 5 6v5c0 4.4 3 8.3 7 9.5 4-1.2 7-5.1 7-9.5V6z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+        <h3>Safe with untrusted books</h3>
+        <p>A book's own scripts never run, so an EPUB from anywhere can't act as you. Roughly 2,000–5,000 EPUBs fit before the free tier runs out.</p>
       </div>
     </div>
   </section>
 
+  <!-- sync: USAGE.md "Screens" and the README banner -->
   <section id="screenshots">
     <h2>Screenshots</h2>
     <figure>
       <img src="screenshots/library.png" width="2000" height="1301" loading="lazy" decoding="async"
            alt="The library view: a grid of book covers with search, sorting and paging.">
-      <figcaption>The library — covers, metadata and search, read out of the files on upload.</figcaption>
+      <figcaption>The library: covers, metadata and search, read out of the files on upload.</figcaption>
     </figure>
     <figure>
       <img src="screenshots/sync.png" width="2000" height="1300" loading="lazy" decoding="async"
            alt="The sync view: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are.">
-      <figcaption>Sync — every device's position on every book, and whether they actually agree.</figcaption>
+      <figcaption>Sync: every device's position on every book, and whether they agree.</figcaption>
     </figure>
     <figure>
       <img src="screenshots/admin.png" width="2000" height="1301" loading="lazy" decoding="async"
            alt="The administration view: storage used against the R2 free tier, the user list, and the form for adding a user.">
-      <figcaption>Administration — storage against the free tier, and the closed user set.</figcaption>
+      <figcaption>Administration: storage against the free tier, and the accounts.</figcaption>
     </figure>
   </section>
 
+  <!-- sync: README "Install" (script and by hand; the agent prompt stays in the README) -->
   <section id="install">
     <h2>Install</h2>
-    <p>Needs Node 22+ and a Cloudflare account.</p>
+    <p>You need Node 24 with npm 11.10 or later, and a Cloudflare account.</p>
 <pre><code>git clone https://github.com/pid1/tsundoku &amp;&amp; cd tsundoku
 npm install
 npx wrangler login
-
 ./scripts/setup.sh      <span class="c"># bucket, database, migrations, secrets, admin password</span>
 npm run deploy</code></pre>
     <p class="note">
-      <code>setup.sh</code> is idempotent and prints the generated admin password at the end. Write it down.
-      A custom domain is strongly recommended: some OPDS clients dislike <code>workers.dev</code> subdomains,
-      and TLS is non-negotiable because authentication is HTTP Basic.
+      The setup script is safe to run again. It prints the admin password at the end: write it down, because
+      changing the <code>ADMIN_PASSWORD</code> secret later does not change it.
+    </p>
+    <details>
+      <summary>Doing it by hand instead</summary>
+<pre><code>npx wrangler r2 bucket create tsundoku
+npx wrangler d1 create tsundoku          <span class="c"># put the uuid in wrangler.toml as database_id</span>
+npx wrangler d1 migrations apply tsundoku --remote
+
+openssl rand -base64 32 | npx wrangler secret put PEPPER
+openssl rand -base64 32 | npx wrangler secret put SESSION_KEY
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
+
+npm run deploy</code></pre>
+    </details>
+    <p class="note">
+      Then give it a custom domain: uncomment the <code>[[routes]]</code> block in <code>wrangler.toml</code>.
+      Some OPDS readers dislike <code>workers.dev</code> addresses, and sign-in is HTTP Basic, so it must be
+      served over TLS. The <a href="https://github.com/pid1/tsundoku#agent-instructions">README</a> also has a
+      prompt you can hand to an AI agent to deploy it for you.
     </p>
   </section>
 
+  <!-- sync: README "Connect a reader" -->
   <section id="readers">
-    <h2>Connecting a reader</h2>
+    <h2>Connect a reader</h2>
     <div class="tables">
       <table>
         <thead>
-          <tr><th>Client</th><th>Where</th><th>Address</th></tr>
+          <tr><th>Reader</th><th>Where</th><th>Address</th></tr>
         </thead>
         <tbody>
           <tr>
-            <td>KOReader — catalog</td>
+            <td>KOReader, catalog</td>
             <td>Search → OPDS catalog → +</td>
-            <td><code>https://books.example.com/opds/1.2</code></td>
-          </tr>
-          <tr>
-            <td>KOReader — progress sync</td>
-            <td>Tools → More tools → Progress sync</td>
-            <td><code>https://books.example.com</code> — the base address, no path</td>
-          </tr>
-          <tr>
-            <td>Thorium Reader</td>
-            <td>Catalogs → Add catalog</td>
             <td><code>https://books.example.com/opds/2.0</code></td>
           </tr>
           <tr>
-            <td>FBReader, Moon+, PocketBook, Panels, Aldiko</td>
-            <td>Add OPDS catalog</td>
-            <td><code>https://books.example.com/opds/1.2</code></td>
+            <td>KOReader, progress sync</td>
+            <td>Tools → More tools → Progress sync → Custom sync server</td>
+            <td><code>https://books.example.com</code>, the base address with no path</td>
+          </tr>
+          <tr>
+            <td>CrossPoint, Thorium, any OPDS 2.0 reader</td>
+            <td>Add an OPDS catalog</td>
+            <td><code>https://books.example.com/opds/2.0</code></td>
           </tr>
         </tbody>
       </table>
     </div>
     <p class="note">
-      On KOReader, choose <strong>Login</strong>, not Register. Self-registration is disabled and answers 403.
-      Set the same document matching method on every device: <code>binary</code> is the default and the right choice;
-      <code>filename</code> breaks the moment you rename a file.
+      The catalog is OPDS 2.0 only; readers that only speak the older OPDS 1.2 can't use it. Sign in with the
+      same account on every device, the web reader included: positions are kept per account. Download a book to
+      each device from the catalog rather than sideloading a copy from elsewhere, because two copies of a book
+      rarely hash the same and each would keep its own position. The running server has these instructions at
+      <code>/help.html</code>.
     </p>
   </section>
 
+  <!-- sync: USAGE.md "Free tier" -->
   <section id="limits">
     <h2>Free tier</h2>
     <div class="tables">
@@ -272,38 +345,40 @@ npm run deploy</code></pre>
           <tr><th>Limit</th><th>Free plan</th><th>What it means here</th></tr>
         </thead>
         <tbody>
-          <tr><td>R2 storage</td><td>10 GB-month</td><td><strong>The first ceiling.</strong> Roughly 2,000–5,000 EPUBs, or ~80 comics.</td></tr>
+          <tr><td>R2 storage</td><td>10 GB-month</td><td><strong>The first ceiling.</strong> Roughly 2,000–5,000 EPUBs, or about 80 comics.</td></tr>
+          <tr><td>Worker requests</td><td>100,000 / day</td><td>Plenty for a household. The UI is static assets, which are free and unmetered.</td></tr>
+          <tr><td>Worker CPU</td><td>10 ms / invocation</td><td>Shaped how passwords are stored.</td></tr>
+          <tr><td>Request body</td><td>100 MB</td><td>Files over 95 MB upload in parts automatically.</td></tr>
           <tr><td>R2 egress</td><td>Free</td><td>Why this is on R2 and not S3.</td></tr>
-          <tr><td>Worker requests</td><td>100,000 / day</td><td>Enormous for a household. The UI shell is static assets, which are unmetered.</td></tr>
-          <tr><td>Request body</td><td>100 MB</td><td>Files over 95 MB upload via R2 multipart automatically.</td></tr>
           <tr><td>D1</td><td>5 GB, 5M row reads/day</td><td>Nowhere near it.</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="note">Figures read from Cloudflare's documentation on 2026-09-18. Re-check them before relying on them.</p>
+    <p class="note">Figures read from Cloudflare's documentation on 2026-09-18. Check them again before relying on them.</p>
   </section>
 
+  <!-- sync: README "Design principles" -->
   <section>
-    <h2>What it is not</h2>
-    <ul class="plain">
-      <li>No DRM, no lending</li>
-      <li>No in-browser reader</li>
-      <li>No public catalog: every route except <code>/healthcheck</code> and the login page needs credentials</li>
-      <li>No open registration: the admin creates the accounts</li>
+    <h2>Design principles</h2>
+    <ul class="principles">
+      <li><strong>Free to run.</strong> A household's library fits the free tier, and the free-tier arithmetic is written down in <a href="https://github.com/pid1/tsundoku/blob/main/PLAN.md">PLAN.md</a>.</li>
+      <li><strong>Readers' own protocols.</strong> OPDS and kosync, so the reader you already use works without a plugin.</li>
+      <li><strong>No build step.</strong> TypeScript that wrangler bundles, and a UI of plain ES modules. No framework, no bundler.</li>
+      <li><strong>Closed by default.</strong> No public catalog, no self-signup, and no DRM or lending.</li>
+      <li><strong>The pipeline shapes, renderers display.</strong> The OPDS 2.0 catalog and the web UI are two renderings of one query.</li>
+      <li><strong>Trade-offs written down.</strong> Where the free tier forced a choice, like how passwords are stored, <a href="https://github.com/pid1/tsundoku/blob/main/docs/security.md">docs/security.md</a> says what was traded and why.</li>
     </ul>
-    <p class="note" style="margin-top:1.25rem">
-      <a href="https://github.com/pid1/tsundoku/blob/main/PLAN.md">PLAN.md</a> has the design reasoning,
-      the free-tier arithmetic and the open questions.
-    </p>
   </section>
 
 </main>
 
+<!-- sync: README "License" -->
 <footer>
   <div class="inner">
-    <span>tsundoku. BSD-3-Clause. Not affiliated with the KOReader project.</span>
+    <span>tsundoku. BSD 3-Clause. Made by Jonathan Roemer. Not affiliated with the KOReader project.</span>
     <span>
       <a href="https://github.com/pid1/tsundoku">Source</a> ·
+      <a href="https://github.com/pid1/tsundoku/blob/main/USAGE.md">Usage</a> ·
       <a href="https://github.com/pid1/tsundoku/releases">Releases</a> ·
       <a href="https://github.com/pid1/tsundoku/issues">Issues</a>
     </span>

@@ -130,14 +130,14 @@ describe("session cookies", () => {
 
 describe("router", () => {
   const router = new Router();
-  router.get("/opds/1.2/authors/:id", () => new Response("author"));
-  router.get("/opds/1.2/authors", () => new Response("authors"));
+  router.get("/opds/2.0/authors/:id", () => new Response("author"));
+  router.get("/opds/2.0/authors", () => new Response("authors"));
   router.put("/syncs/progress", () => new Response("put"));
   router.get("/content/:id/:filename", () => new Response("content"));
 
   it("prefers an exact segment over a parameter at the same depth", () => {
-    expect(router.match("GET", "/opds/1.2/authors")).not.toBeNull();
-    expect(router.match("GET", "/opds/1.2/authors/a1")?.params).toEqual({ id: "a1" });
+    expect(router.match("GET", "/opds/2.0/authors")).not.toBeNull();
+    expect(router.match("GET", "/opds/2.0/authors/a1")?.params).toEqual({ id: "a1" });
   });
 
   it("decodes percent-encoded parameters", () => {
@@ -145,17 +145,17 @@ describe("router", () => {
   });
 
   it("routes HEAD through the GET handler", () => {
-    expect(router.match("HEAD", "/opds/1.2/authors")).not.toBeNull();
+    expect(router.match("HEAD", "/opds/2.0/authors")).not.toBeNull();
   });
 
   it("does not match a different method or a longer path", () => {
     expect(router.match("POST", "/syncs/progress")).toBeNull();
     expect(router.match("PUT", "/syncs/progress")).not.toBeNull();
-    expect(router.match("GET", "/opds/1.2/authors/a1/extra")).toBeNull();
+    expect(router.match("GET", "/opds/2.0/authors/a1/extra")).toBeNull();
     expect(router.match("GET", "/nothing/here")).toBeNull();
   });
 
   it("ignores trailing slashes", () => {
-    expect(router.match("GET", "/opds/1.2/authors/")).not.toBeNull();
+    expect(router.match("GET", "/opds/2.0/authors/")).not.toBeNull();
   });
 });

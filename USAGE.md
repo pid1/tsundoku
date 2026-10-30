@@ -31,14 +31,16 @@ Neither deploy path applies migrations. A change that adds one needs `npm run db
 
 Replace `books.example.com` with your own address.
 
+The catalog is OPDS 2.0 only, at `https://books.example.com/opds/2.0` (`/opds` redirects there). Readers that only speak OPDS 1.2 can't use it, and the old `/opds/1.2` address answers 410 Gone.
+
 ### KOReader: catalog
 
-**Search** → **OPDS catalog** → **+**
+A recent KOReader speaks OPDS 2.0. **Search** → **OPDS catalog** → **+**
 
 | Field | Value |
 |---|---|
 | Title | `tsundoku` |
-| URL | `https://books.example.com/opds/1.2` |
+| URL | `https://books.example.com/opds/2.0` |
 | Username / Password | your account |
 
 Long-press a book to download it.
@@ -48,28 +50,23 @@ Long-press a book to download it.
 **Tools** → **More tools** → **Progress sync**
 
 - **Custom sync server:** `https://books.example.com`, the base address with no path.
-- Choose **Login**, not Register. Self-registration is off and answers 403.
+- Choose **Login**, not Register. Self-registration is off and is refused.
 - Use **the same account on every device**, the web reader included. Positions are kept per account.
 - Set **Document matching method** the same on every device. `binary`, the default, is the right choice. `filename` breaks the moment you rename a file.
 - Turn on **Send document metadata** if you want titles shown beside positions.
 
 `binary` matching identifies a book by hashing samples of the file itself. Two copies of the same book from different sources almost never hash the same, so download a book to every device from this catalog rather than sideloading a copy from elsewhere. Otherwise each copy keeps its own position.
 
-### Thorium Reader
+### CrossPoint, Thorium and other readers
 
-**Catalogs** → **Add catalog** → `https://books.example.com/opds/2.0`. Thorium speaks OPDS 2.0, so give it the JSON feed.
-
-### Anything else
-
-FBReader, Moon+ Reader, PocketBook, Panels and Aldiko all speak OPDS 1.2: `https://books.example.com/opds/1.2`.
+Any reader that speaks OPDS 2.0 takes `https://books.example.com/opds/2.0` with your username and password. CrossPoint and Thorium both do.
 
 ### By hand
 
 ```bash
-curl -i https://books.example.com/opds/1.2                    # 401 + auth document
-curl -u you:secret https://books.example.com/opds/1.2
-curl -u you:secret -H 'Accept: application/opds+json' \
-     https://books.example.com/opds/2.0/new | jq .
+curl -i https://books.example.com/opds/2.0                    # 401 + auth document
+curl -u you:secret https://books.example.com/opds/2.0 | jq .
+curl -u you:secret https://books.example.com/opds/2.0/new | jq .
 curl https://books.example.com/healthcheck
 ```
 
@@ -114,7 +111,7 @@ Figures read from Cloudflare's docs on 2026-09-18. Check them again before relyi
 
 **Changing `ADMIN_PASSWORD` doesn't change the admin password.** That secret creates the first administrator on the first request after deploy, and only while there are no accounts. After that it is ignored. Change passwords on the **Admin** page.
 
-**KOReader's Register button returns 403.** An administrator creates accounts. Set `ALLOW_KOSYNC_REGISTER = "1"` in `wrangler.toml` to open the endpoint, but it would create sync-only accounts with no catalog access.
+**KOReader's Register button is refused.** It answers 402, as KOReader's reference sync server does. An administrator creates accounts. Set `ALLOW_KOSYNC_REGISTER = "1"` in `wrangler.toml` to open the endpoint, but it would create sync-only accounts with no catalog access.
 
 **Covers and thumbnails are the same image.** Resizing needs Cloudflare Images, which isn't on the free tier. Readers scale covers themselves.
 
@@ -134,7 +131,7 @@ src/
   books/            zip reader, XML scanner, EPUB/CBZ metadata, KOReader hash
   db/queries.ts     every SQL statement
   http/             responses, ETags, byte ranges
-  opds/             Atom (1.2) and JSON (2.0) serializers, OpenSearch, auth doc
+  opds/             OPDS 2.0 serializer, auth document
   routes/           opds, content, api, kosync
   sync/             per-device sync status shaping, web reader positions
 public/             the UI, served as static assets (free, unmetered)
@@ -147,7 +144,7 @@ test/unit/          vitest, running inside workerd
 test/conformance/   checks against a deployed instance
 ```
 
-The rule: **the pipeline shapes, renderers display.** An OPDS 1.2 feed, an OPDS 2.0 feed and the UI's JSON are three renderings of one query result. If a renderer needs to work something out, the column is missing: add it to the row, not to the template.
+The rule: **the pipeline shapes, renderers display.** An OPDS 2.0 feed and the UI's JSON are two renderings of one query result. If a renderer needs to work something out, the column is missing: add it to the row, not to the template.
 
 ## Testing
 
