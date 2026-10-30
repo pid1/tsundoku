@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/screenshots/library.png" alt="The tsundoku library: a grid of book covers with search, sorting and paging" width="880"></p>
+<p align="center"><img src="docs/screenshots/library-desktop.jpg" alt="The tsundoku library: a grid of book covers with search, sorting and paging" width="880"></p>
 
 <p align="center">
   <a href="LICENSE"><img alt="license: BSD 3-Clause" src="https://img.shields.io/badge/license-BSD%203--Clause-15191f"></a>

@@ -10,7 +10,7 @@
 <meta property="og:description" content="OPDS 2.0 catalog, KOReader progress sync and a web reader, in one Cloudflare Worker on the free tier.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://pid1.github.io/tsundoku/">
-<meta property="og:image" content="https://pid1.github.io/tsundoku/screenshots/library.png">
+<meta property="og:image" content="https://pid1.github.io/tsundoku/screenshots/library-desktop.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <style>
 :root {
@@ -122,6 +122,11 @@ ul.principles { list-style: none; padding: 0; margin: 0; display: grid; gap: .75
 ul.principles li { color: var(--muted); }
 ul.principles strong { color: var(--ink); }
 details { margin: 0 0 1rem; }
+h3.shots { font-size: 1.05rem; margin: 2rem 0 1rem; }
+.phones { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.1rem; margin: 0 0 2rem; }
+.phones figure { margin: 0; }
+.phones img { border-radius: 18px; }
+@media (max-width: 640px) { .phones { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 details summary { cursor: pointer; color: var(--accent); margin-bottom: .75rem; }
 </style>
 </head>
@@ -249,21 +254,58 @@ details summary { cursor: pointer; color: var(--accent); margin-bottom: .75rem; 
   <!-- sync: USAGE.md "Screens" and the README banner -->
   <section id="screenshots">
     <h2>Screenshots</h2>
+    <p class="note">The demo library is public-domain books from <a href="https://standardebooks.org">Standard Ebooks</a>.</p>
+
+    <h3 class="shots">On a laptop</h3>
     <figure>
-      <img src="screenshots/library.png" width="2000" height="1301" loading="lazy" decoding="async"
-           alt="The library view: a grid of book covers with search, sorting and paging.">
+      <img src="screenshots/library-desktop.jpg" width="2000" height="1250" loading="lazy" decoding="async"
+           alt="The library: a grid of book covers with search, sorting and paging.">
       <figcaption>The library: covers, metadata and search, read out of the files on upload.</figcaption>
     </figure>
     <figure>
-      <img src="screenshots/sync.png" width="2000" height="1300" loading="lazy" decoding="async"
-           alt="The sync view: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are.">
+      <img src="screenshots/reader-desktop.png" width="2000" height="1250" loading="lazy" decoding="async"
+           alt="The web reader: Pride and Prejudice, Chapter 1, in two columns.">
+      <figcaption>The web reader: two columns, in Atkinson Hyperlegible Next.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/preferences-desktop.png" width="2000" height="1250" loading="lazy" decoding="async"
+           alt="The Preferences page: font and reading settings beside a live preview.">
+      <figcaption>Preferences: the font for your account and the reading settings for this device, with a live preview.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/sync-desktop.png" width="2000" height="1250" loading="lazy" decoding="async"
+           alt="The Sync page: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are.">
       <figcaption>Sync: every device's position on every book, and whether they agree.</figcaption>
     </figure>
     <figure>
-      <img src="screenshots/admin.png" width="2000" height="1301" loading="lazy" decoding="async"
-           alt="The administration view: storage used against the R2 free tier, the user list, and the form for adding a user.">
+      <img src="screenshots/admin-desktop.png" width="2000" height="1250" loading="lazy" decoding="async"
+           alt="The Administration page: storage used against the R2 free tier, the users, and the form for adding one.">
       <figcaption>Administration: storage against the free tier, and the accounts.</figcaption>
     </figure>
+
+    <h3 class="shots">On a phone</h3>
+    <div class="phones">
+      <figure>
+        <img src="screenshots/library-mobile.jpg" width="780" height="1688" loading="lazy" decoding="async"
+             alt="The library on a phone: two columns of book covers.">
+        <figcaption>The library</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/reader-mobile.png" width="780" height="1688" loading="lazy" decoding="async"
+             alt="The web reader on a phone in the light theme.">
+        <figcaption>Reading, light</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/reader-mobile-dark.png" width="780" height="1688" loading="lazy" decoding="async"
+             alt="The web reader on a phone in the dark theme.">
+        <figcaption>Reading, dark</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/settings-mobile.png" width="780" height="1688" loading="lazy" decoding="async"
+             alt="The reader's Aa panel on a phone: font, theme, text size and spacing.">
+        <figcaption>The Aa panel</figcaption>
+      </figure>
+    </div>
   </section>
 
   <!-- sync: README "Install" (script and by hand; the agent prompt stays in the README) -->
