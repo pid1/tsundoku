@@ -1,353 +1,119 @@
-# tsundoku
-
-> 積ん読 — acquiring books and letting them pile up unread.
+<p align="center"><img src="docs/screenshots/library.png" alt="The tsundoku library: a grid of book covers with search, sorting and paging" width="880"></p>
 
 <p align="center">
-  <img src="docs/screenshots/library.png" alt="The library view: a grid of book covers with search, sorting and paging" width="100%">
-  <br><em>The library — covers, metadata and search, read out of the files on upload.</em>
+  <a href="LICENSE"><img alt="license: BSD 3-Clause" src="https://img.shields.io/badge/license-BSD%203--Clause-15191f"></a>
+  <a href="https://github.com/pid1/tsundoku/actions/workflows/ci.yml"><img alt="ci" src="https://img.shields.io/github/actions/workflow/status/pid1/tsundoku/ci.yml?branch=main&label=ci&color=15191f"></a>
+  <a href="https://developers.cloudflare.com/workers/platform/pricing/"><img alt="runs on the Cloudflare Workers free tier" src="https://img.shields.io/badge/runs%20on-Cloudflare%20free%20tier-15191f"></a>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/sync.png" alt="The sync view: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are" width="100%">
-  <br><em>Sync — every device's position on every book, and whether they actually agree.</em>
+  <a href="https://pid1.github.io/tsundoku/">Website</a> •
+  <a href="USAGE.md">Usage</a> •
+  <a href="PLAN.md">Design</a> •
+  <a href="docs/security.md">Security</a>
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/admin.png" alt="The administration view: storage against the R2 free tier, the user list, and the form for adding a user" width="100%">
-  <br><em>Administration — storage against the free tier, and the closed user set.</em>
-</p>
+<p align="center"><em><strong>Tsundoku</strong> (積ん読, pronounced tsoon-doh-koo) is Japanese for buying books and letting them pile up unread.</em></p>
 
-An OPDS 1.2 **and** 2.0 catalog, an authenticated upload UI, and a
-KOReader-compatible progress sync server. One Cloudflare Worker, one R2 bucket,
-one D1 database, inside the free tier.
+## What is tsundoku?
 
-- **Browse and download** from KOReader, Thorium, FBReader, Panels, or anything
-  else that speaks OPDS.
-- **Upload through a web UI.** EPUB and CBZ have their metadata and cover art
-  read out of the file server-side, without downloading it.
-- **Sync reading position** between devices, using KOReader's own kosync
-  protocol.
-- **Read in the browser**, for the times you only have a phone. The web reader
-  syncs with KOReader like any other device.
+Tsundoku is a home for your ebooks. Upload them once, read them on any e-reader, and pick up on one device where you stopped on another. It runs on Cloudflare's free tier: one Worker, one R2 bucket and one D1 database.
 
-No DRM, no lending, no public catalog. Every route except
-`/healthcheck` and the login page needs credentials.
+It's built for a household, not the public. Every page but the sign-in page needs an account, and an administrator creates the accounts.
 
-[`PLAN.md`](PLAN.md) has the design reasoning, the free-tier arithmetic and the
-open questions. This file is how to run it.
+## From upload to reading
 
-## Free tier
+1. You drag a book onto the upload page. The title, authors and cover are read out of the file.
+2. Your e-reader finds it in the catalog and downloads it.
+3. KOReader saves your place to tsundoku as you read.
+4. You open the same book on your phone, in the browser, at the same paragraph.
 
-| Limit | Free plan | What it means here |
+## What it does
+
+- Serves an OPDS 1.2 and 2.0 catalog to KOReader, Thorium, FBReader, Panels and any other OPDS reader.
+- Reads metadata and covers out of EPUB and CBZ files on upload, without downloading them.
+- Syncs reading positions between devices with KOReader's own kosync protocol.
+- Shows every device's position on every book, and whether they agree.
+- Opens EPUB, CBZ, MOBI, AZW3 and FB2 in the browser, and syncs that position with KOReader too.
+- Sets books in Atkinson Hyperlegible Next if you like, with a light and a dark theme and adjustable size and spacing on each device.
+- Stores up to roughly 2,000–5,000 EPUBs before it outgrows the free tier.
+
+## Install
+
+You need Node 24 with npm 11.10 or later, and a Cloudflare account. Pick one.
+
+1. **The setup script.** It creates the bucket and the database, applies the migrations, sets the secrets and generates an admin password. It's safe to run again.
+
+   ```bash
+   git clone https://github.com/pid1/tsundoku && cd tsundoku
+   npm install
+   npx wrangler login
+   ./scripts/setup.sh
+   npm run deploy
+   ```
+
+   It prints the admin password at the end. Write it down: changing the `ADMIN_PASSWORD` secret later does not change it.
+
+2. **By hand.** The same steps, one command at a time.
+
+   <details>
+   <summary>Manual setup</summary>
+
+   ```bash
+   npx wrangler r2 bucket create tsundoku
+   npx wrangler d1 create tsundoku          # put the uuid in wrangler.toml as database_id
+   npx wrangler d1 migrations apply tsundoku --remote
+
+   openssl rand -base64 32 | npx wrangler secret put PEPPER
+   openssl rand -base64 32 | npx wrangler secret put SESSION_KEY
+   npx wrangler secret put ADMIN_USERNAME
+   npx wrangler secret put ADMIN_PASSWORD
+
+   npm run deploy
+   ```
+
+   </details>
+
+Then give it a custom domain: uncomment the `[[routes]]` block in `wrangler.toml`. Some OPDS readers dislike `workers.dev` addresses, and sign-in is HTTP Basic, so it must be served over TLS.
+
+### Agent instructions
+
+Paste this into an AI agent that can run a shell and `wrangler`, to deploy tsundoku for you:
+
+```text
+Deploy tsundoku (https://github.com/pid1/tsundoku) to my Cloudflare account, on the domain DOMAIN. Ask me before any step that needs my password or a browser sign-in, and let me do those myself.
+
+1. Clone the repository. Read README.md, USAGE.md and wrangler.toml in full.
+2. Check that Node is 24 or later and npm is 11.10 or later. Run npm install.
+3. Run npx wrangler login and wait for me to finish signing in.
+4. Run ./scripts/setup.sh. When it prints the admin password, tell me to save it in my password manager. Never write it to a file, and never repeat it after that.
+5. In wrangler.toml, uncomment the [[routes]] block and set the pattern to DOMAIN.
+6. Run npm run deploy.
+7. Confirm with: curl https://DOMAIN/healthcheck, which should answer {"state":"OK"}. Report the address and the admin username. Do not report the password.
+```
+
+Then sign in, create an account for each reader on the **Admin** page, and connect your devices. [USAGE.md](USAGE.md) has the settings for KOReader, Thorium and the rest.
+
+## Connect a reader
+
+| Reader | Where | Address |
 |---|---|---|
-| R2 storage | 10 GB-month | **The first ceiling.** Roughly 2,000–5,000 EPUBs, or ~80 comics. Comics are in scope, so this is what you outgrow first. |
-| Worker requests | 100,000 / day | Enormous for a household. The UI shell is static assets, which are free and unmetered. |
-| Worker CPU | 10 ms / invocation | Shapes the credential design. See [Security](#security). |
-| Request body | 100 MB | Files over 95 MB upload via R2 multipart automatically. |
-| R2 egress | Free | Why this is on R2 and not S3. |
-| D1 | 5 GB, 5M row reads/day, 100k row writes/day | Nowhere near it. |
+| KOReader, catalog | Search → OPDS catalog → + | `https://DOMAIN/opds/1.2` |
+| KOReader, progress sync | Tools → More tools → Progress sync → Custom sync server | `https://DOMAIN` |
+| Thorium | Catalogs → Add catalog | `https://DOMAIN/opds/2.0` |
+| FBReader, Moon+ Reader, PocketBook, Panels, Aldiko | Add an OPDS catalog | `https://DOMAIN/opds/1.2` |
 
-Figures read from Cloudflare's docs on 2026-09-18. Re-check before relying on
-them.
+Sign in with the same account on every device, the web reader included. Positions are kept per account, so a device on another account never sees them. The running server has the same instructions at `/help.html`.
 
-## Setup
+## Design principles
 
-Needs Node 24 with npm 11.10 or later, which reads the release cooldown in
-.npmrc, and a Cloudflare account.
+- **Free to run.** A household's library fits the free tier, and the free-tier arithmetic is written down in [PLAN.md](PLAN.md).
+- **Readers' own protocols.** OPDS and kosync, so the reader you already use works without a plugin.
+- **No build step.** TypeScript that wrangler bundles, and a UI of plain ES modules. No framework, no bundler.
+- **Closed by default.** No public catalog, no self-signup, and no DRM or lending.
+- **The pipeline shapes, renderers display.** OPDS 1.2, OPDS 2.0 and the web UI are three renderings of one query.
+- **Trade-offs written down.** Where the free tier forced a choice, like how passwords are stored, [docs/security.md](docs/security.md) says what was traded and why.
 
-```bash
-git clone https://github.com/pid1/tsundoku && cd tsundoku
-npm install
-npx wrangler login
+## License
 
-./scripts/setup.sh      # bucket, database, migrations, secrets, admin password
-npm run deploy
-```
-
-`setup.sh` is idempotent and prints the generated admin password at the end.
-**Write it down** — see [the admin account](#the-admin-account).
-
-<details>
-<summary>Doing it by hand instead</summary>
-
-```bash
-npx wrangler r2 bucket create tsundoku
-npx wrangler d1 create tsundoku          # put the uuid in wrangler.toml as database_id
-npx wrangler d1 migrations apply tsundoku --remote
-
-openssl rand -base64 32 | npx wrangler secret put PEPPER
-openssl rand -base64 32 | npx wrangler secret put SESSION_KEY
-npx wrangler secret put ADMIN_USERNAME
-npx wrangler secret put ADMIN_PASSWORD
-
-npm run deploy
-```
-
-</details>
-
-A **custom domain is strongly recommended** (uncomment the `[[routes]]` block in
-`wrangler.toml`). Some OPDS clients dislike `workers.dev` subdomains, and TLS is
-non-negotiable because authentication is HTTP Basic.
-
-### Routine work
-
-```bash
-npm run deploy           # ./build.sh, then wrangler deploy (push to main does this too)
-npm run db:migrate       # apply new migrations
-npm run dev              # local dev server
-npm run typecheck        # tsc --noEmit
-npm test                 # vitest, inside workerd
-./scripts/backup.sh      # dump the D1 base tables
-```
-
-## Connecting a reader
-
-Replace `books.example.com` with your own address. There is also a `/help.html`
-page on the running server with the same instructions.
-
-### KOReader — catalog
-
-**Search** → **OPDS catalog** → **+**
-
-| Field | Value |
-|---|---|
-| Title | `tsundoku` |
-| URL | `https://books.example.com/opds/1.2` |
-| Username / Password | your account |
-
-Long-press a book to download it.
-
-### KOReader — progress sync
-
-**Tools** → **More tools** → **Progress sync**
-
-- **Custom sync server**: `https://books.example.com` — the base address, no path.
-- Choose **Login**, not Register. Self-registration is disabled and answers 403.
-- Set **Document matching method** the same on every device. `binary` is the
-  default and the right choice; `filename` breaks the moment you rename a file.
-- Enable **Send document metadata** if you want titles shown beside positions.
-
-### Thorium Reader
-
-**Catalogs** → **Add catalog** → `https://books.example.com/opds/2.0`. Thorium
-speaks OPDS 2.0, so give it the JSON feed.
-
-### Anything else
-
-FBReader, Moon+ Reader, PocketBook, Panels and Aldiko all speak OPDS 1.2:
-`https://books.example.com/opds/1.2`.
-
-### By hand
-
-```bash
-curl -i https://books.example.com/opds/1.2                    # 401 + auth document
-curl -u you:secret https://books.example.com/opds/1.2
-curl -u you:secret -H 'Accept: application/opds+json' \
-     https://books.example.com/opds/2.0/new | jq .
-curl https://books.example.com/healthcheck
-```
-
-## Sync
-
-The **Sync** page shows every reading position, grouped by book and broken out
-per device, so you can see at a glance whether two devices actually agree.
-
-- Each book lists its devices, furthest first, with how far behind the others
-  are and when each last pushed.
-- A book is **in sync** when its devices are within 0.5% of each other,
-  **out of sync** when they are not, and **one device** when there is nothing to
-  compare. The 0.5% tolerance exists because a device that merely re-renders the
-  page it was handed reports a fractionally different float.
-- Positions for books that are not in the library still appear, titled from the
-  metadata KOReader sends. That is the normal state for a book you read on a
-  device but never uploaded.
-- Administrators see everyone and can filter by user. **Readers see only their
-  own devices** -- a reading position says what someone is reading and how far
-  they have got, which is not something to hand to other readers.
-
-kosync itself keeps one position per user per book, last writer wins, so it
-cannot answer "where is each device". The per-device positions are recorded
-alongside it in `progress_devices` (migration `0003`). The kosync protocol
-routes are untouched and still answer from `progress`.
-
-## Web reader
-
-Click a book's cover or title to read it in the browser. EPUB, CBZ, MOBI, AZW3
-and FB2 open there; anything else downloads instead. Each card's **Edit** button
-opens the metadata editor, which is also where the download link lives.
-
-- **It syncs with KOReader.** The reader is another kosync device: it pushes to
-  the same tables under the same document hash, writing KOReader's own position
-  format (an XPointer for EPUB, a page number for CBZ). KOReader picks up where
-  the browser stopped and the browser picks up where KOReader stopped. Each
-  browser shows on the Sync page as its own device, "Web reader (iPhone)" and so
-  on. MOBI, AZW3 and FB2 positions stay in the browser, because KOReader could
-  not read them back.
-- **Positions are close, not exact.** KOReader's DOM is not the browser's, so an
-  XPointer translated from one to the other lands on the right paragraph and
-  usually the right word ([`public/xpointer.js`](public/xpointer.js) explains why).
-- **Opening a book never pushes.** Only turning a page does. Otherwise just
-  looking at a book on your phone would overwrite your e-reader's position with
-  an approximation of itself.
-- **Fonts** are set on the **Preferences** page and saved to your account:
-  the book's own, or Atkinson Hyperlegible Next. The font files are served from
-  `public/fonts` under the SIL Open Font License.
-- **Theme, text size, line spacing and line length** are saved per device, in
-  the browser, so a phone and a laptop can differ. Change them on the
-  Preferences page, which has a live preview, or while reading from the **Aa**
-  button. Light is #222222 on #FAFAF7 and dark is #E6E6E6 on #121212, both
-  about 15:1: well past WCAG AAA, short of the 21:1 glare of pure black on
-  white. Defaults are 18px, 1.6 line height and 65 characters a line.
-- **A book's scripts never run.** Chapters render in `blob:` iframes, which
-  inherit the reader page's Content-Security-Policy (`public/_headers`), and
-  that policy only admits scripts served by this site.
-
-Rendering is [foliate-js](https://github.com/johnfactotum/foliate-js), vendored
-at a pinned commit in `public/vendor/foliate-js` (see the README there). It runs
-entirely in the browser: opening a book is one `/content` request, and R2
-egress is free.
-
-## Things that read as bugs but are not
-
-**The admin password does not change when you rotate `ADMIN_PASSWORD`.** That
-secret seeds the first administrator on the first request after deploy, and only
-while the users table is empty. Afterwards it is ignored forever. Change
-passwords on the **Admin** page.
-
-**KOReader's Register button returns 403.** Accounts are created by an
-administrator. Set `ALLOW_KOSYNC_REGISTER = "1"` in `wrangler.toml` if you want
-the endpoint open, but note that it would create sync-only accounts with no
-catalog access.
-
-**Covers and thumbnails are the same image.** Resizing would need Cloudflare
-Images, which is not on the free tier. Readers scale client-side.
-
-**A book can appear with its filename as the title.** PDF, MOBI and AZW3 have no
-metadata parser here; the edit form is the answer. Any parse failure degrades to
-the filename rather than failing the upload, and the reason is shown on the card.
-
-**Uploading the same file twice returns 409, not an error.** Deduplication uses
-R2's own MD5 checksum. Multipart uploads carry no whole-object checksum, so files
-over 95 MB skip the dedupe check.
-
-## Security
-
-Three client populations, three mechanisms, one credential:
-
-| Surface | Mechanism |
-|---|---|
-| OPDS feeds, downloads, covers | HTTP **Basic** — the only scheme KOReader's OPDS client speaks |
-| Web UI | signed `HttpOnly; Secure; SameSite=Lax` session cookie |
-| kosync | `x-auth-user` + `x-auth-key` (md5 of the password), as the protocol dictates |
-
-**Passwords are stored as a peppered keyed hash (HMAC-SHA256), not a slow KDF.**
-Basic auth sends credentials on every request, and the free plan's 10 ms CPU cap
-does not fit a high-iteration KDF there. The pepper lives in Workers Secrets, not
-in D1, so a database leak alone yields nothing crackable. Compensating controls:
-no self-signup, a closed user set, generated high-entropy passwords, per-IP and
-per-username rate limiting on failed sign-ins, and constant-time comparison.
-
-**This trade is documented, not hidden** — [`PLAN.md` §5](PLAN.md) states it in
-full. If you are exposing this to more than a handful of people, read that
-section first.
-
-### The PBKDF2 benchmark, measured
-
-Measured 2026-09-18 on a deployed Worker with the harness in
-[`test/bench/`](test/bench/), reading `cpuTime` off `wrangler tail` (`Date.now()`
-does not advance during compute in Workers, so it cannot measure this):
-
-| PBKDF2-SHA256 iterations | CPU time |
-|---|---|
-| 1,000 | 0 ms |
-| 10,000 | 3 ms |
-| 50,000 | 10 ms |
-| 100,000 | 22–27 ms |
-| 200,000 | **throws** — `Pbkdf2 failed: iteration counts above 100000 are not supported` |
-| HMAC-SHA256 × 50 (what we do now) | 0 ms |
-
-Three things fall out, and together they say **keep HMAC**:
-
-1. **workerd caps PBKDF2 at 100,000 iterations.** Above that it throws, so the
-   cap is a hard ceiling, not a budget. OWASP currently advises 600,000 for
-   PBKDF2-SHA256 — **six times more than a Worker will run at all.** No
-   defensible modern KDF count is reachable here on any plan.
-2. **Against the free plan's 10 ms, the most that fits with margin is about
-   30,000 iterations** (50,000 lands exactly on the cap with none). That is a
-   weak KDF, not a good one.
-3. **It would buy nothing anyway.** The same password has to stay verifiable by
-   a fast keyed hash for Basic and kosync, which send credentials on every
-   request. An attacker with the database and the pepper attacks the fast
-   verifier and ignores the slow one — the weakest verifier governs. PBKDF2 on
-   the sign-in path only would add cost and a schema column for no gain, unless
-   Basic and kosync were dropped, which would mean dropping KOReader.
-
-So the design stands, but one premise behind it has changed: see
-[`PLAN.md` §5](PLAN.md). The 10 ms cap is **not** what rules PBKDF2 out —
-workerd's 100,000 ceiling and the shared-credential argument are.
-
-## Layout
-
-```
-src/
-  index.ts          fetch + scheduled handlers, admin seeding
-  router.ts         path matching
-  auth/             password verifiers, Basic, session cookies, isolate cache
-  books/            zip reader, XML scanner, EPUB/CBZ metadata, KOReader hash
-  db/queries.ts     every SQL statement
-  http/             responses, ETags, byte ranges
-  opds/             Atom (1.2) and JSON (2.0) serializers, OpenSearch, auth doc
-  routes/           opds, content, api, kosync
-  sync/             per-device sync status shaping, web reader positions
-public/             the UI shell, served as static assets (free, unmetered)
-  reader.*          the web reader; xpointer.js translates KOReader positions
-  vendor/           foliate-js, vendored
-  fonts/            reader fonts
-migrations/         D1 schema
-scripts/            setup, backup, reindex
-test/unit/          vitest, running inside workerd
-test/conformance/   checks against a deployed instance
-```
-
-The rule: **the pipeline owns the shaping, renderers only display.** An OPDS 1.2
-feed, an OPDS 2.0 feed and the UI's JSON are three renderings of one query
-result. If a renderer needs to derive something, the column is missing — add it
-to the row, not to the template.
-
-## Testing
-
-```bash
-npm test                                    # unit, inside workerd
-BASE_URL=https://books.example.com \
-  TSUNDOKU_USER=you TSUNDOKU_PASS=secret \
-  npm run conformance                       # against a deployment
-```
-
-Unit tests run in workerd rather than Node, because the ZIP reader depends on
-`DecompressionStream` and the kosync hash depends on Cloudflare's non-standard
-`crypto.subtle.digest("MD5")`. Testing those against Node polyfills would prove
-nothing.
-
-## Known unknowns
-
-1. **The KOReader document hash ambiguity is settled — against LuaJIT, not yet
-   against a device.** `bit.lshift(1024, -2)` returns `0` in real LuaJIT (the
-   shift count is masked to five bits), so the first sample offset is 0 and
-   `partial_md5` is the column KOReader computes. KOReader's loop was
-   transcribed into LuaJIT and matched both stored columns byte-for-byte on
-   files up to 3.6 MB, and that golden pair is now pinned in
-   `test/unit/partialmd5.test.ts`. What is still unconfirmed is what a specific
-   KOReader build writes to its sidecar.
-   [`test/conformance/partial-md5.md`](test/conformance/partial-md5.md) has both
-   the evidence and the remaining device procedure.
-2. ~~The PBKDF2-versus-10 ms benchmark has not been run.~~ **Run 2026-09-18** —
-   see [Security](#the-pbkdf2-benchmark-measured). The answer is to keep HMAC,
-   for a different reason than the plan assumed.
-3. **Reader quirks, not specs, are the real compatibility risk.** KOReader has an
-   open history of OPDS credential bugs across versions. Test against devices.
-4. **OPDS 2.0 client support is thin in practice.** It is built and correct; 1.2
-   is what will actually get used.
-
-## Licence
-
-BSD 3-Clause. See [LICENSE](LICENSE).
+BSD 3-Clause. Made by Jonathan Roemer. See [LICENSE](LICENSE).

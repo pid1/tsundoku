@@ -21,4 +21,4 @@ curl -s "$B/?mode=hmac&reps=50"
 npx wrangler delete --name tsundoku-bench
 ```
 
-Results are in the main README under [Security](../../README.md#security).
+Results are in [docs/security.md](../../docs/security.md#the-pbkdf2-benchmark).

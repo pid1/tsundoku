@@ -119,7 +119,9 @@ tsundoku/
   wrangler.toml
   package.json
   tsconfig.json
-  README.md               usage: deploy, add a catalog, point KOReader at it
+  README.md               what it is, install, connect a reader
+  USAGE.md                running it, the Sync page, the web reader
+  docs/security.md        authentication, password storage, the PBKDF2 benchmark
   PLAN.md                 this file
   migrations/
     0001_init.sql         users, books, authors, tags, progress
@@ -245,8 +247,8 @@ Compensating controls, all of which are in scope:
 **Phase 1 gate, not an assumption:** benchmark PBKDF2-SHA256 in a deployed
 Worker and find the highest iteration count that fits 10 ms with margin. If a
 defensible count fits, use it *for the UI login path only* (cold, once per
-session) and keep HMAC for Basic and kosync. Record the measured number in the
-README next to the command that produced it. Do not carry a guessed figure
+session) and keep HMAC for Basic and kosync. Record the measured number in
+docs/security.md next to the command that produced it. Do not carry a guessed figure
 forward.
 
 **[changed in build] Gate cleared 2026-09-18. The conclusion holds; two of the
@@ -1039,8 +1041,8 @@ curl -H "x-auth-user: user" -H "x-auth-key: $(printf %s 'pass' | md5)" \
    does not depend on it; the UI nicety does.
 2. **PBKDF2 within 10 ms CPU (§5).** Unmeasured. The design does not *depend* on
    PBKDF2 fitting — HMAC + pepper is the plan — but the benchmark decides whether
-   the login path can do better, and the measured number belongs in the README
-   next to the command that produced it.
+   the login path can do better, and the measured number belongs in
+   docs/security.md next to the command that produced it.
 3. **Hand-written XML parsing.** The highest-defect-density component. Mitigated
    by a real-world OPF corpus in the test suite and a hard rule that a parse
    failure degrades to filename metadata rather than a 500.
