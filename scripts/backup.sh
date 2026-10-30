@@ -9,7 +9,7 @@ set -euo pipefail
 
 NAME="${TSUNDOKU_NAME:-tsundoku}"
 OUT="${1:-backups/tsundoku-$(date -u +%Y%m%dT%H%M%SZ).sql}"
-TABLES="users books authors book_authors tags book_tags progress uploads"
+TABLES="users books authors book_authors tags book_tags progress progress_devices user_preferences uploads"
 
 mkdir -p "$(dirname "$OUT")"
 

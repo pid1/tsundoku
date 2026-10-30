@@ -1,5 +1,7 @@
 import type { Book, BookView, DeviceProgressRow, NavEntry, Page, ProgressRow, User } from "../types.js";
 import { nowSeconds, sortAuthor, sortTitle, ulid } from "../util.js";
+import { DEFAULT_PREFERENCES } from "../preferences.js";
+import type { Preferences } from "../preferences.js";
 
 /* -------------------------------------------------------------------------- */
 /* users                                                                       */
@@ -79,6 +81,28 @@ export async function updateUserFields(
 
 export async function deleteUser(db: D1Database, userId: string): Promise<void> {
   await db.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
+}
+
+/* -------------------------------------------------------------------------- */
+/* preferences                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export async function getPreferences(db: D1Database, userId: string): Promise<Preferences> {
+  const row = await db
+    .prepare("SELECT reader_font FROM user_preferences WHERE user_id = ?")
+    .bind(userId)
+    .first<Preferences>();
+  return { ...DEFAULT_PREFERENCES, ...(row ?? {}) };
+}
+
+export async function putPreferences(db: D1Database, userId: string, prefs: Preferences): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO user_preferences (user_id, reader_font, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET reader_font = excluded.reader_font, updated_at = excluded.updated_at`,
+    )
+    .bind(userId, prefs.reader_font, nowSeconds())
+    .run();
 }
 
 /* -------------------------------------------------------------------------- */

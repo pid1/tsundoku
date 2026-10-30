@@ -40,7 +40,9 @@ does that arithmetic.
 - No DRM, no lending, no LCP, no `borrow`/`buy` acquisition flows.
 - No OPDS **publishing** (the PUT-a-book-to-a-catalog draft). Upload is our own
   authenticated API, not a standard one.
-- No in-browser reader. The catalog hands you a file; your reader reads it.
+- ~~No in-browser reader.~~ **[changed in build]** Reversed for reading on a
+  phone; see section 10b. It is a kosync device like any other, not a
+  replacement for an e-reader, so it stays deliberately small.
 - No transcoding, no format conversion, no server-side Calibre.
 - No public/anonymous catalog. Every route except `/healthcheck` and the login
   page is authenticated.
@@ -724,6 +726,9 @@ POST   /api/books/:id/cover    replace cover
 GET    /api/users              admin only     POST   /api/users
 PATCH  /api/users/:id          admin only     DELETE /api/users/:id
 GET    /api/stats              storage, counts, free-tier headroom
+GET    /api/books/:id/progress web reader position (§10b)
+PUT    /api/books/:id/progress
+GET    /api/preferences        PATCH /api/preferences
 ```
 
 **Rate limiting.** Failed authentications on `/api/session`, `/users/auth` and
@@ -759,6 +764,60 @@ and derives nothing.
 filter; a reader sees only their own devices. A reading position reveals what
 someone is reading and how far they have got, which is not an administrator's to
 publish to other readers.
+
+---
+
+## 10b. Web reader [changed in build]
+
+**Added after deployment, on request**, reversing a non-goal from section 1:
+reading on a phone without installing a separate app, with the position
+following you to and from KOReader.
+
+**Rendering is foliate-js**, vendored unmodified under `public/vendor/foliate-js`
+at a pinned commit. It is plain ES modules with no build step, which fits the
+no-bundler rule, and it runs entirely client-side: opening a book costs one
+Worker invocation for `/content`, and the free-tier arithmetic in section 4 does
+not move.
+
+**Sync goes through the same tables as KOReader.** `GET` and `PUT
+/api/books/:id/progress` take the session cookie and a book id, find the book's
+partial MD5, and read or write `progress` and `progress_devices` exactly as the
+kosync routes do. Both hash columns are read and the most recent wins; a push
+goes to whichever hash already holds the user's position, else the primary. The
+browser writes KOReader's own position format -- an XPointer for EPUB, a 1-based
+page number for CBZ -- so KOReader needs no change to read it back. MOBI, AZW3
+and FB2 are not pushed: KOReader's positions in those formats address its own
+conversion, which the browser cannot reproduce.
+
+**The XPointer translation is approximate by construction.** crengine drops
+whitespace-only text nodes and may normalise whitespace, so offsets can drift.
+Resolution degrades to the deepest element that exists rather than failing.
+Because of that, the reader pushes only after a move you made (a key, tap,
+swipe, scroll or contents link); opening a book or the layout settling must not
+replace an exact KOReader position with an approximation of itself. When the
+server's position is one this browser pushed, the exact CFI saved beside it in
+localStorage is used instead.
+
+**A book's scripts are contained by CSP.** foliate-js renders chapters in
+`blob:` iframes with `allow-scripts allow-same-origin`, and a `blob:` document
+inherits its creator's policy. `/reader` is served with `script-src 'self'`, so
+inline and `blob:` scripts in a book never run, and `reader.js` is a file rather
+than an inline script for the same reason.
+
+**Preferences** are a `user_preferences` row per user (migration `0004`), created
+on first save, validated against a fixed set in `src/preferences.ts`. The only
+preference so far is `reader_font`: the publisher's fonts, or Atkinson
+Hyperlegible Next served from `public/fonts`.
+
+**Display settings are per device**, in localStorage, because the right text
+size for a phone is wrong for a laptop: theme (match system, light, dark), text
+size, line spacing and line length. One form (`deviceSettingsForm` in
+`public/app.js`) serves both the Preferences page, beside a live preview, and
+the reader's Aa panel, where changes restyle the open book immediately. The
+palettes target about 15:1 contrast (AAA is 7:1) with an off-white and a
+near-black rather than pure white and black, which cause halation for some
+readers; the measured ratios are in `app.js`. Dark mode resets every element's
+colour inside the book, since publishers routinely hard-code black text.
 
 ---
 

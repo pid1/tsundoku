@@ -4,3 +4,22 @@
 /.build-id
   Cache-Control: no-store
   Content-Type: text/plain; charset=utf-8
+
+# The reader renders each chapter in a blob: iframe, and a blob: document
+# inherits the policy of the page that made it. So this policy is what stops a
+# script inside an EPUB from running with your session: script-src admits only
+# files served from this origin, never inline script or blob: URLs. Styles,
+# images and fonts may come from blob: because that is how foliate-js hands a
+# book's own CSS, images and embedded fonts to the iframe.
+#
+# frame-ancestors is 'self', not 'none': the chapter frames inherit it too, and
+# Safari applies it to them, so 'none' refuses every chapter and the reader
+# hangs at "Laying out pages". 'self' still stops other sites framing it.
+/reader
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' blob: data:; font-src 'self' blob: data:; media-src 'self' blob:; frame-src blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'
+/reader.html
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' blob: data:; font-src 'self' blob: data:; media-src 'self' blob:; frame-src blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'
+
+# Fonts never change under a given name; a new version gets a new file name.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

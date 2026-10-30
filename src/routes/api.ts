@@ -14,6 +14,8 @@ import {
   deleteUser,
   getBook,
   getBookByContentMd5,
+  getPreferences,
+  getProgress,
   getUpload,
   getUserById,
   getUserByUsername,
@@ -32,9 +34,13 @@ import {
   upsertTags,
   listDeviceProgress,
   listSyncUsers,
+  putPreferences,
+  putProgress,
 } from "../db/queries.js";
 import type { SortKey } from "../db/queries.js";
 import { groupSyncRows } from "../sync/status.js";
+import { documentHashes, documentToWrite, latestPosition, parseWebProgress } from "../sync/web.js";
+import { parsePreferences } from "../preferences.js";
 import type { Book } from "../types.js";
 import { clampInt, detectFormat, generatePassword, nowSeconds, slugify, sortTitle, titleFromFilename, toHex, ulid } from "../util.js";
 
@@ -507,6 +513,78 @@ export function registerApiRoutes(router: Router): void {
     await deleteUser(c.env.DB, user.id);
     cacheClear();
     return json({ ok: true });
+  });
+
+  /* ----------------------------- web reader ------------------------------ */
+
+  /**
+   * Where the browser reader should open this book: the latest position any of
+   * your devices has pushed, KOReader included. `document` is null when the
+   * book has no partial MD5 yet (it was never indexed), in which case there is
+   * nothing to sync against and the reader keeps its position locally.
+   */
+  router.get("/api/books/:id/progress", async (c) => {
+    const who = await requireSession(c);
+    if (who instanceof Response) return who;
+    const book = await getBook(c.env.DB, c.params.id);
+    if (!book) return notFound("No such book");
+
+    const hashes = documentHashes(book);
+    const rows = await Promise.all(hashes.map((h) => getProgress(c.env.DB, who.userId, h)));
+    return json(
+      { document: documentToWrite(hashes, rows), progress: latestPosition(rows) },
+      { headers: { "cache-control": "no-store" } },
+    );
+  });
+
+  /** The browser reader's push. Same tables, same rules, as kosync's PUT. */
+  router.put("/api/books/:id/progress", async (c) => {
+    const who = await requireSession(c);
+    if (who instanceof Response) return who;
+    const book = await getBook(c.env.DB, c.params.id);
+    if (!book) return notFound("No such book");
+
+    let body: unknown;
+    try {
+      body = await c.request.json();
+    } catch {
+      return badRequest("Malformed JSON");
+    }
+    const parsed = parseWebProgress(body);
+    if ("error" in parsed) return badRequest(parsed.error);
+
+    const hashes = documentHashes(book);
+    const rows = await Promise.all(hashes.map((h) => getProgress(c.env.DB, who.userId, h)));
+    const document = documentToWrite(hashes, rows);
+    if (!document) return problem(409, "This book has no document hash yet. Re-read the file from the editor.");
+
+    const timestamp = await putProgress(c.env.DB, { user_id: who.userId, document, metadata: null, ...parsed });
+    return json({ document, timestamp });
+  });
+
+  /* ----------------------------- preferences ----------------------------- */
+
+  router.get("/api/preferences", async (c) => {
+    const who = await requireSession(c);
+    if (who instanceof Response) return who;
+    return json(await getPreferences(c.env.DB, who.userId), { headers: { "cache-control": "no-store" } });
+  });
+
+  router.patch("/api/preferences", async (c) => {
+    const who = await requireSession(c);
+    if (who instanceof Response) return who;
+
+    let body: unknown;
+    try {
+      body = await c.request.json();
+    } catch {
+      return badRequest("Malformed JSON");
+    }
+    const next = parsePreferences(body, await getPreferences(c.env.DB, who.userId));
+    if ("error" in next) return badRequest(next.error);
+
+    await putPreferences(c.env.DB, who.userId, next);
+    return json(next);
   });
 
   /* -------------------------------- misc --------------------------------- */
