@@ -130,25 +130,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 0.5rem;
   overflow: hidden;
 }
-/* A button that reads as a link: the title opens the metadata editor. */
+/* The title opens the book in the reader, as the cover does. */
 .card .t {
   font-size: 0.9rem;
   line-height: 1.3;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
   color: var(--accent);
-  text-align: left;
-  text-decoration: underline;
 }
-.card .cover { cursor: pointer; }
+.card .cover { cursor: pointer; text-decoration: none; }
 .card .a { font-size: 0.8rem; color: var(--muted); }
 .card .meta { font-size: 0.72rem; color: var(--muted); }
-/* A link that reads as a button: the download is a plain <a> so that Save-link-as,
-   middle click and a resumed transfer all keep working. */
-.card .dl {
-  margin-top: auto;
+/* The card's Edit button, and the editor's download link, which is a plain <a>
+   so that Save-link-as, middle click and a resumed transfer all keep working. */
+.dl {
+  display: inline-block;
   align-self: start;
   font-size: 0.72rem;
   padding: 0.3rem 0.6rem;
@@ -157,7 +151,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   color: var(--ink);
   text-decoration: none;
 }
-.card .dl:hover { border-color: var(--accent); color: var(--accent); }
+.dl:hover { border-color: var(--accent); color: var(--accent); }
+button.dl { background: none; font-weight: normal; }
+.card .dl { margin-top: auto; }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); }

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preferences - tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/library.html">tsundoku</a>
+  <nav>
+    <a href="/library.html">Library</a>
+    <a href="/sync.html">Sync</a>
+    <a href="/upload.html">Upload</a>
+    <a href="/admin.html" data-admin-only>Admin</a>
+    <a href="/preferences.html">Preferences</a>
+    <a href="/help.html">Help</a>
+    <a href="#" id="signout">Sign out (<span id="who"></span>)</a>
+  </nav>
+</header>
+
+<main>
+  <h1>Preferences</h1>
+  <div id="msg" class="msg" hidden></div>
+
+  <section class="panel">
+    <h2 style="margin-top:0">Reader font</h2>
+    <p class="muted" style="font-size:0.9rem">
+      The font the web reader sets books in. Saved to your account, so it applies in every browser you sign in
+      from. E-readers keep their own font settings.
+    </p>
+    <fieldset class="choices" id="fonts" disabled></fieldset>
+  </section>
+</main>
+
+<style>
+  .choices { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+  .choice {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.75rem;
+    align-items: baseline;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--ink);
+    font-size: 1rem;
+    margin: 0;
+  }
+  .choice:has(input:checked) { border-color: var(--accent); }
+  .choice .sample { grid-column: 2; color: var(--muted); font-size: 1.05rem; line-height: 1.45; }
+</style>
+
+<script type="module">
+import { api, el, fontFaceCss, mountChrome, READER_FONTS, showMessage } from "/app.js";
+
+await mountChrome();
+
+const SAMPLE = "Il1 O0 rn m — the quick brown fox jumps over the lazy dog.";
+const fieldset = document.getElementById("fonts");
+
+// Load each font's faces on this page too, so the sample shows the real thing.
+const style = document.createElement("style");
+style.textContent = Object.keys(READER_FONTS).map(fontFaceCss).join("\n");
+document.head.append(style);
+
+try {
+  const prefs = await api("/api/preferences");
+  fieldset.replaceChildren(
+    ...Object.entries(READER_FONTS).map(([key, font]) =>
+      el(
+        "label",
+        { class: "choice" },
+        el("input", { type: "radio", name: "reader_font", value: key, checked: prefs.reader_font === key }),
+        el("span", { text: font.label }),
+        el("span", {
+          class: "sample",
+          style: font.family ? `font-family: "${font.family}", system-ui, sans-serif` : "",
+          text: font.family ? SAMPLE : "Whatever the publisher chose, or your browser's default.",
+        }),
+      ),
+    ),
+  );
+  fieldset.disabled = false;
+} catch (error) {
+  showMessage("msg", error.message);
+}
+
+fieldset.addEventListener("change", async (event) => {
+  fieldset.disabled = true;
+  try {
+    await api("/api/preferences", { method: "PATCH", body: JSON.stringify({ reader_font: event.target.value }) });
+    showMessage("msg", "Saved. Books you open from now on use this font.", "ok");
+  } catch (error) {
+    showMessage("msg", error.message);
+  } finally {
+    fieldset.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

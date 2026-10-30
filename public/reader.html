@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reader - tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 16px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    font-size: 0.85rem;
+    color: var(--muted);
+    background: var(--bg);
+    min-width: 0;
+  }
+  .bar.top { border-bottom: 1px solid var(--line); padding-top: max(0.5rem, env(safe-area-inset-top)); }
+  .bar.bottom { border-top: 1px solid var(--line); padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+  .bar a { color: var(--muted); text-decoration: none; white-space: nowrap; }
+  .bar a:hover { color: var(--ink); }
+  .bar .title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink);
+    text-align: center;
+  }
+  .bar button { font-size: 0.8rem; padding: 0.25rem 0.6rem; }
+  .bar .chapter { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .pct { font-variant-numeric: tabular-nums; }
+  #stage { position: relative; min-height: 0; }
+  foliate-view { display: block; width: 100%; height: 100%; }
+  #status {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    text-align: center;
+    color: var(--muted);
+  }
+  #status[hidden] { display: none; }
+  #toc { max-width: min(32rem, calc(100vw - 32px)); max-height: 80dvh; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--ink); }
+  #toc h2 { margin: 0; padding: 1rem 1rem 0.5rem; }
+  #toc ol { list-style: none; margin: 0; padding: 0 0.5rem 1rem; }
+  #toc ol ol { padding: 0 0 0 1rem; }
+  #toc a { display: block; padding: 0.35rem 0.5rem; border-radius: 6px; color: var(--ink); text-decoration: none; }
+  #toc a:hover, #toc a[aria-current="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+</style>
+</head>
+<body>
+<header class="bar top">
+  <a href="/library.html" id="back">&larr; Library</a>
+  <span class="title" id="title"></span>
+  <button type="button" class="secondary" id="contents" disabled>Contents</button>
+</header>
+
+<div id="stage">
+  <div id="status">Opening&hellip;</div>
+</div>
+
+<footer class="bar bottom">
+  <span class="chapter" id="chapter"></span>
+  <span id="sync" title=""></span>
+  <span class="pct" id="pct"></span>
+</footer>
+
+<dialog id="toc">
+  <h2>Contents</h2>
+  <nav id="toc-list"></nav>
+</dialog>
+
+<script type="module" src="/reader.js"></script>
+</body>
+</html>

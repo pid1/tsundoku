@@ -25,7 +25,7 @@ export async function api(path, options = {}) {
     !path.startsWith("/api/session") &&
     location.pathname !== "/"
   ) {
-    location.href = `/?next=${encodeURIComponent(location.pathname)}`;
+    location.href = `/?next=${encodeURIComponent(location.pathname + location.search)}`;
     throw new Error("Sign in required");
   }
 
@@ -51,7 +51,7 @@ export async function requireUser() {
     const { user } = await api("/api/me");
     return user;
   } catch {
-    location.href = `/?next=${encodeURIComponent(location.pathname)}`;
+    location.href = `/?next=${encodeURIComponent(location.pathname + location.search)}`;
     throw new Error("redirecting");
   }
 }
@@ -125,4 +125,66 @@ export async function mountChrome() {
     });
   }
   return user;
+}
+
+/**
+ * The fonts the reader can substitute for a book's own, keyed by the value
+ * stored in user_preferences.reader_font. `publisher` has no CSS: it leaves the
+ * book alone. Each file is served from /fonts and subset the way Fontsource
+ * ships it, so a Latin book downloads only the Latin file.
+ */
+export const READER_FONTS = {
+  publisher: { label: "The book's own fonts" },
+  "atkinson-hyperlegible-next": {
+    label: "Atkinson Hyperlegible Next",
+    family: "Atkinson Hyperlegible Next",
+    faces: [
+      ["latin", "normal", "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"],
+      ["latin", "italic", "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"],
+      ["latin-ext", "normal", "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF"],
+      ["latin-ext", "italic", "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF"],
+    ],
+    file: (subset, style) => `/fonts/atkinson-hyperlegible-next-${subset}-wght-${style}.woff2`,
+  },
+};
+
+/**
+ * @font-face rules for a reader font. URLs are absolute because the reader
+ * injects this into each chapter's document, which is loaded from a blob: URL
+ * that a relative path would resolve against.
+ */
+export function fontFaceCss(key) {
+  const font = READER_FONTS[key];
+  if (!font || !font.family) return "";
+  return font.faces
+    .map(([subset, style, range]) => `@font-face {
+  font-family: "${font.family}";
+  font-style: ${style};
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("${location.origin}${font.file(subset, style)}") format("woff2");
+  unicode-range: ${range};
+}`)
+    .join("\n");
+}
+
+/**
+ * CSS that sets a book in the chosen font. `!important` and the universal
+ * selector are needed because publishers set fonts on every class they have;
+ * code keeps a monospace face, since that is meaning, not style.
+ */
+export function readerFontCss(key) {
+  const font = READER_FONTS[key];
+  if (!font || !font.family) return "";
+  return `${fontFaceCss(key)}
+html, body, body *:not(code):not(pre):not(kbd):not(samp):not(tt) {
+  font-family: "${font.family}", system-ui, sans-serif !important;
+}`;
+}
+
+/** Formats the web reader can open. PDF, CBR, TXT and DjVu are download-only. */
+export const READABLE_FORMATS = new Set(["epub", "cbz", "mobi", "azw3", "fb2"]);
+
+export function readerHref(book) {
+  return `/reader.html?book=${encodeURIComponent(book.id)}`;
 }

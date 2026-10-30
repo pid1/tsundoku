@@ -27,8 +27,10 @@ one D1 database, inside the free tier.
   read out of the file server-side, without downloading it.
 - **Sync reading position** between devices, using KOReader's own kosync
   protocol.
+- **Read in the browser**, for the times you only have a phone. The web reader
+  syncs with KOReader like any other device.
 
-No DRM, no lending, no in-browser reader, no public catalog. Every route except
+No DRM, no lending, no public catalog. Every route except
 `/healthcheck` and the login page needs credentials.
 
 [`PLAN.md`](PLAN.md) has the design reasoning, the free-tier arithmetic and the
@@ -168,6 +170,37 @@ cannot answer "where is each device". The per-device positions are recorded
 alongside it in `progress_devices` (migration `0003`). The kosync protocol
 routes are untouched and still answer from `progress`.
 
+## Web reader
+
+Click a book's cover or title to read it in the browser. EPUB, CBZ, MOBI, AZW3
+and FB2 open there; anything else downloads instead. Each card's **Edit** button
+opens the metadata editor, which is also where the download link lives.
+
+- **It syncs with KOReader.** The reader is another kosync device: it pushes to
+  the same tables under the same document hash, writing KOReader's own position
+  format (an XPointer for EPUB, a page number for CBZ). KOReader picks up where
+  the browser stopped and the browser picks up where KOReader stopped. Each
+  browser shows on the Sync page as its own device, "Web reader (iPhone)" and so
+  on. MOBI, AZW3 and FB2 positions stay in the browser, because KOReader could
+  not read them back.
+- **Positions are close, not exact.** KOReader's DOM is not the browser's, so an
+  XPointer translated from one to the other lands on the right paragraph and
+  usually the right word ([`public/xpointer.js`](public/xpointer.js) explains why).
+- **Opening a book never pushes.** Only turning a page does. Otherwise just
+  looking at a book on your phone would overwrite your e-reader's position with
+  an approximation of itself.
+- **Fonts** are set on the **Preferences** page and saved to your account:
+  the book's own, or Atkinson Hyperlegible Next. The font files are served from
+  `public/fonts` under the SIL Open Font License.
+- **A book's scripts never run.** Chapters render in `blob:` iframes, which
+  inherit the reader page's Content-Security-Policy (`public/_headers`), and
+  that policy only admits scripts served by this site.
+
+Rendering is [foliate-js](https://github.com/johnfactotum/foliate-js), vendored
+at a pinned commit in `public/vendor/foliate-js` (see the README there). It runs
+entirely in the browser: opening a book is one `/content` request, and R2
+egress is free.
+
 ## Things that read as bugs but are not
 
 **The admin password does not change when you rotate `ADMIN_PASSWORD`.** That
@@ -259,8 +292,11 @@ src/
   http/             responses, ETags, byte ranges
   opds/             Atom (1.2) and JSON (2.0) serializers, OpenSearch, auth doc
   routes/           opds, content, api, kosync
-  sync/             per-device sync status shaping
+  sync/             per-device sync status shaping, web reader positions
 public/             the UI shell, served as static assets (free, unmetered)
+  reader.*          the web reader; xpointer.js translates KOReader positions
+  vendor/           foliate-js, vendored
+  fonts/            reader fonts
 migrations/         D1 schema
 scripts/            setup, backup, reindex
 test/unit/          vitest, running inside workerd
