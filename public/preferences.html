@@ -141,7 +141,10 @@ function renderPreview() {
   Object.assign(page.style, {
     fontSize: `${device.fontSize}px`,
     lineHeight: String(device.lineHeight),
-    maxWidth: `${device.lineLength}ch`,
+    maxWidth: device.lineLength ? `${device.lineLength}ch` : "none",
+    // Two columns only where the reader would show them: a page wide enough.
+    columnCount: device.columns === 2 && preview.clientWidth >= 560 ? "2" : "",
+    columnGap: `${device.marginH * 2}px`,
     fontFamily: fontStack(accountFont),
   });
   page.querySelector("a").style.color = t.link;
@@ -153,6 +156,7 @@ document.getElementById("device").replaceChildren(
   }),
 );
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderPreview);
+addEventListener("resize", renderPreview);
 renderPreview();
 
 try {

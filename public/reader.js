@@ -248,9 +248,15 @@ async function main() {
   let font = prefs.reader_font;
   const layout = () => {
     const attrs = paginatorLayout(display, $("stage").clientWidth);
+    let changed = false;
     for (const [name, value] of Object.entries(attrs)) {
-      if (view.renderer.getAttribute(name) !== value) view.renderer.setAttribute(name, value);
+      if (view.renderer.getAttribute(name) === value) continue;
+      view.renderer.setAttribute(name, value);
+      changed = true;
     }
+    // foliate re-renders on its own for a new line length but not for a new
+    // margin, gap or column count, which only change its CSS variables.
+    if (changed) view.renderer.render?.();
   };
   const applyDisplay = (settings) => {
     display = settings;
