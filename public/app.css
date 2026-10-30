@@ -267,3 +267,17 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
   .sync-furthest { text-align: left; }
   .sync-furthest strong { display: inline; margin-right: 0.35rem; }
 }
+
+/* Reader display settings (app.js deviceSettingsForm), on the Preferences page
+   and in the reader's panel. */
+.device-settings .label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.segmented label { position: relative; margin: 0; color: var(--ink); font-size: 0.9rem; cursor: pointer; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented span { display: block; padding: 0.4rem 0.8rem; }
+.segmented label + label span { border-left: 1px solid var(--line); }
+.segmented input:checked + span { background: var(--accent); color: var(--accent-ink); }
+.segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -4px; }
+.stepper { display: inline-flex; align-items: center; gap: 0.5rem; }
+.stepper button { min-width: 2.75rem; }
+.stepper .size-value { min-width: 3.5rem; text-align: center; font-variant-numeric: tabular-nums; }

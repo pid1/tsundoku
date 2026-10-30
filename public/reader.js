@@ -8,7 +8,17 @@
 // that policy is what stops a script inside an EPUB from running as you.
 
 import "/vendor/foliate-js/view.js";
-import { api, formatBytes, READABLE_FORMATS, readerFontCss } from "/app.js";
+import {
+  api,
+  deviceSettingsForm,
+  formatBytes,
+  lineLengthPx,
+  loadDeviceSettings,
+  READABLE_FORMATS,
+  readerDisplayCss,
+  readerFontCss,
+  resolveTheme,
+} from "/app.js";
 import { fromXPointer, isXPointer, toXPointer } from "/xpointer.js";
 
 /** Formats whose position KOReader can read back: an XPointer, or a page number. */
@@ -18,13 +28,11 @@ const SYNCED_FORMATS = new Set(["epub", "cbz"]);
 const PUSH_DELAY_MS = 3000;
 
 // Adapted from foliate-js's own reader.js: readable defaults that leave the
-// publisher's layout alone, and colours that follow the system theme.
+// publisher's layout alone. Colours, size and spacing come from the device
+// settings (readerDisplayCss in app.js) and are appended after this.
 const BASE_CSS = `
 @namespace epub "http://www.idpf.org/2007/ops";
-html { color-scheme: light dark; }
-@media (prefers-color-scheme: dark) { a:link { color: lightblue; } }
 p, li, blockquote, dd {
-  line-height: 1.5;
   text-align: start;
   hyphens: auto;
   widows: 2;
@@ -188,6 +196,10 @@ function wireNavigation(view, onMove) {
   });
 }
 
+// Theme the bars before anything downloads, so a dark-mode reader does not
+// flash light while a large book loads.
+document.documentElement.dataset.theme = resolveTheme(loadDeviceSettings().theme);
+
 async function main() {
   const bookId = new URLSearchParams(location.search).get("book");
   if (!bookId) {
@@ -219,11 +231,31 @@ async function main() {
   const response = await fetch(href, { credentials: "same-origin" });
   if (!response.ok) throw new Error(`Could not download the book (${response.status})`);
   const file = new File([await response.blob()], book.filename, { type: book.mime });
+  showStatus("Laying out pages…");
 
   const view = document.createElement("foliate-view");
   $("stage").append(view);
   await view.open(file);
-  view.renderer.setStyles?.(BASE_CSS + readerFontCss(prefs.reader_font));
+
+  // Display settings are per device and apply live: the panel's controls call
+  // applyDisplay, and a "Match system" theme follows the OS as it changes.
+  let display = loadDeviceSettings();
+  const applyDisplay = (settings) => {
+    display = settings;
+    document.documentElement.dataset.theme = resolveTheme(settings.theme);
+    view.renderer.setStyles?.(BASE_CSS + readerDisplayCss(settings) + readerFontCss(prefs.reader_font));
+    view.renderer.setAttribute("max-inline-size", `${lineLengthPx(settings)}px`);
+  };
+  applyDisplay(display);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (display.theme === "system") applyDisplay(display);
+  });
+  $("settings-form").replaceChildren(deviceSettingsForm({ ...display }, applyDisplay));
+  $("display").addEventListener("click", () => $("settings").showModal());
+  $("settings-close").addEventListener("click", () => $("settings").close());
+  $("settings").addEventListener("click", (event) => {
+    if (event.target === $("settings")) $("settings").close();
+  });
 
   // Only a move you made is pushed. Opening a book lands on a position, and the
   // layout settling afterwards reports it again a little differently; pushing

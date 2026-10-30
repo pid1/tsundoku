@@ -188,3 +188,172 @@ export const READABLE_FORMATS = new Set(["epub", "cbz", "mobi", "azw3", "fb2"]);
 export function readerHref(book) {
   return `/reader.html?book=${encodeURIComponent(book.id)}`;
 }
+
+/* ------------------------------------------------------------------------ */
+/* Reader display settings, kept per device                                  */
+/* ------------------------------------------------------------------------ */
+
+// These live in localStorage, not on the account: the right text size for a
+// phone held at arm's length is wrong for a laptop. The font family is the
+// exception and stays on the account (see READER_FONTS above).
+//
+// Colours follow WCAG 2.2 AAA with room to spare, but stop short of black on
+// white: 21:1 causes halation for some readers (dyslexia, astigmatism, Irlen
+// syndrome), and a warm off-white cuts glare. Measured ratios:
+//   light  #222222 on #FAFAF7  15.2:1   muted #545454  7.2:1   link #1A4A8F  8.3:1
+//   dark   #E6E6E6 on #121212  15.0:1   muted #A0A0A0  7.2:1   link #8AB4F8  8.9:1
+// Dark mode uses a near-black, not #000, so bright letters do not appear to bleed.
+
+export const READER_THEMES = {
+  light: { label: "Light", bg: "#FAFAF7", fg: "#222222", muted: "#545454", line: "#E2E0D8", link: "#1A4A8F", scheme: "light" },
+  dark: { label: "Dark", bg: "#121212", fg: "#E6E6E6", muted: "#A0A0A0", line: "#2E2E2E", link: "#8AB4F8", scheme: "dark" },
+};
+
+export const DEVICE_SETTING_OPTIONS = {
+  theme: [["system", "Match system"], ["light", "Light"], ["dark", "Dark"]],
+  fontSize: { min: 14, max: 28, step: 1 },
+  lineHeight: [[1.4, "Tight"], [1.5, "Snug"], [1.6, "Normal"], [1.8, "Relaxed"], [2, "Loose"]],
+  lineLength: [[55, "Narrow"], [65, "Medium"], [75, "Wide"]],
+};
+
+/** 18px, 1.6 and 65 characters: comfortable on a 13-15" laptop, and the usual guidance. */
+export const DEFAULT_DEVICE_SETTINGS = { theme: "system", fontSize: 18, lineHeight: 1.6, lineLength: 65 };
+
+const DEVICE_SETTINGS_KEY = "tsundoku.readerSettings";
+
+const pick = (value, options, fallback) => (options.some(([v]) => v === value) ? value : fallback);
+
+/** This device's settings, with anything missing or malformed replaced by the default. */
+export function loadDeviceSettings() {
+  let raw = {};
+  try {
+    raw = JSON.parse(localStorage.getItem(DEVICE_SETTINGS_KEY)) ?? {};
+  } catch {
+    // Private windows and blocked storage: fall through to the defaults.
+  }
+  const d = DEFAULT_DEVICE_SETTINGS;
+  const o = DEVICE_SETTING_OPTIONS;
+  const size = Number(raw.fontSize);
+  return {
+    theme: pick(raw.theme, o.theme, d.theme),
+    fontSize: Number.isFinite(size) ? Math.min(o.fontSize.max, Math.max(o.fontSize.min, Math.round(size))) : d.fontSize,
+    lineHeight: pick(Number(raw.lineHeight), o.lineHeight, d.lineHeight),
+    lineLength: pick(Number(raw.lineLength), o.lineLength, d.lineLength),
+  };
+}
+
+export function saveDeviceSettings(settings) {
+  try {
+    localStorage.setItem(DEVICE_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Not fatal: the settings apply for this visit and are forgotten after.
+  }
+}
+
+/** "light" or "dark": the theme to draw, with "system" resolved. */
+export function resolveTheme(theme) {
+  if (theme === "light" || theme === "dark") return theme;
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+/**
+ * The column width for a line length in characters. foliate-js wants pixels;
+ * an average character is about half an em in book faces, which is what the
+ * usual 50-75 character guidance assumes.
+ */
+export function lineLengthPx(settings) {
+  return Math.round(settings.lineLength * settings.fontSize * 0.5);
+}
+
+/**
+ * CSS that applies the device settings to a book. Size and spacing override
+ * the publisher with !important, as any reading app must for the settings to
+ * do anything. In dark mode every element's colour and background is reset as
+ * well, since a book that sets black text on its paragraphs would otherwise be
+ * black on near-black. Light mode leaves a publisher's colours alone: dark text
+ * on the off-white page reads fine. Images are never touched.
+ */
+export function readerDisplayCss(settings) {
+  const t = READER_THEMES[resolveTheme(settings.theme)];
+  const dark = t.scheme === "dark";
+  return `
+html { color-scheme: ${t.scheme}; font-size: ${settings.fontSize}px !important; }
+html, body { background: ${t.bg} !important; color: ${t.fg} !important; }
+body { font-weight: 400; }
+p, li, blockquote, dd, dt, div, td, th { line-height: ${settings.lineHeight} !important; }
+a:link, a:visited { color: ${t.link} !important; }
+${dark ? `body *:not(img):not(svg):not(svg *):not(video):not(a) {
+  color: inherit !important;
+  background-color: transparent !important;
+  border-color: ${t.line} !important;
+}` : ""}`;
+}
+
+/**
+ * The settings controls, shared by the reader's panel and the Preferences
+ * page. Each change is saved to this device and handed to `onChange`.
+ */
+export function deviceSettingsForm(settings, onChange) {
+  const o = DEVICE_SETTING_OPTIONS;
+  const update = (patch) => {
+    Object.assign(settings, patch);
+    saveDeviceSettings(settings);
+    onChange({ ...settings });
+  };
+
+  const theme = el(
+    "div",
+    { class: "segmented", role: "radiogroup", "aria-label": "Theme" },
+    ...o.theme.map(([value, label]) =>
+      el(
+        "label",
+        {},
+        el("input", {
+          type: "radio",
+          name: "reader-theme",
+          value,
+          checked: settings.theme === value,
+          onchange: () => update({ theme: value }),
+        }),
+        el("span", { text: label }),
+      ),
+    ),
+  );
+
+  const sizeValue = el("output", { class: "size-value", text: `${settings.fontSize}px` });
+  const step = (delta) => () => {
+    const next = Math.min(o.fontSize.max, Math.max(o.fontSize.min, settings.fontSize + delta));
+    sizeValue.textContent = `${next}px`;
+    update({ fontSize: next });
+  };
+  const size = el(
+    "div",
+    { class: "stepper" },
+    el("button", { type: "button", class: "secondary", "aria-label": "Smaller text", text: "A−", onclick: step(-1) }),
+    sizeValue,
+    el("button", { type: "button", class: "secondary", "aria-label": "Larger text", text: "A+", onclick: step(1) }),
+  );
+
+  const select = (id, options, value, key) =>
+    el(
+      "select",
+      { id, onchange: (event) => update({ [key]: Number(event.target.value) }) },
+      ...options.map(([v, label]) => el("option", { value: String(v), selected: v === value, text: label })),
+    );
+
+  const field = (label, control, id) =>
+    el("div", { class: "field" }, el(id ? "label" : "span", { class: "label", for: id, text: label }), control);
+
+  return el(
+    "div",
+    { class: "device-settings" },
+    field("Theme", theme),
+    field("Text size", size),
+    el(
+      "div",
+      { class: "row" },
+      field("Line spacing", select("ds-line-height", o.lineHeight, settings.lineHeight, "lineHeight"), "ds-line-height"),
+      field("Line length", select("ds-line-length", o.lineLength, settings.lineLength, "lineLength"), "ds-line-length"),
+    ),
+  );
+}

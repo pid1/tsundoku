@@ -192,6 +192,12 @@ opens the metadata editor, which is also where the download link lives.
 - **Fonts** are set on the **Preferences** page and saved to your account:
   the book's own, or Atkinson Hyperlegible Next. The font files are served from
   `public/fonts` under the SIL Open Font License.
+- **Theme, text size, line spacing and line length** are saved per device, in
+  the browser, so a phone and a laptop can differ. Change them on the
+  Preferences page, which has a live preview, or while reading from the **Aa**
+  button. Light is #222222 on #FAFAF7 and dark is #E6E6E6 on #121212, both
+  about 15:1: well past WCAG AAA, short of the 21:1 glare of pure black on
+  white. Defaults are 18px, 1.6 line height and 65 characters a line.
 - **A book's scripts never run.** Chapters render in `blob:` iframes, which
   inherit the reader page's Content-Security-Policy (`public/_headers`), and
   that policy only admits scripts served by this site.

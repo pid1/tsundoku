@@ -7,6 +7,17 @@
 <link rel="stylesheet" href="/app.css">
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <style>
+  /* The reader draws its own theme, chosen per device, rather than the site's:
+     reader.js sets data-theme from the reading settings. The values match the
+     book's page (READER_THEMES in app.js) so the bars and the page are one surface. */
+  html[data-theme="light"] {
+    --bg: #FAFAF7; --panel: #FFFFFF; --ink: #222222; --muted: #545454; --line: #E2E0D8;
+    --accent: #1A4A8F; --accent-ink: #FFFFFF; color-scheme: light;
+  }
+  html[data-theme="dark"] {
+    --bg: #121212; --panel: #1C1C1C; --ink: #E6E6E6; --muted: #A0A0A0; --line: #2E2E2E;
+    --accent: #8AB4F8; --accent-ink: #121212; color-scheme: dark;
+  }
   html, body { height: 100%; }
   body {
     display: grid;
@@ -54,6 +65,17 @@
     color: var(--muted);
   }
   #status[hidden] { display: none; }
+  .panel-dialog {
+    width: min(26rem, calc(100vw - 32px));
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    color: var(--ink);
+  }
+  .panel-dialog h2 { margin: 0 0 1rem; }
+  .panel-dialog .note { font-size: 0.8rem; margin: 0.25rem 0 1rem; }
+  .bar .bar-actions { display: flex; gap: 0.4rem; }
   #toc { max-width: min(32rem, calc(100vw - 32px)); max-height: 80dvh; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--ink); }
   #toc h2 { margin: 0; padding: 1rem 1rem 0.5rem; }
   #toc ol { list-style: none; margin: 0; padding: 0 0.5rem 1rem; }
@@ -66,7 +88,10 @@
 <header class="bar top">
   <a href="/library.html" id="back">&larr; Library</a>
   <span class="title" id="title"></span>
-  <button type="button" class="secondary" id="contents" disabled>Contents</button>
+  <span class="bar-actions">
+    <button type="button" class="secondary" id="display" aria-label="Reading settings">Aa</button>
+    <button type="button" class="secondary" id="contents" disabled>Contents</button>
+  </span>
 </header>
 
 <div id="stage">
@@ -78,6 +103,14 @@
   <span id="sync" title=""></span>
   <span class="pct" id="pct"></span>
 </footer>
+
+<dialog id="settings" class="panel-dialog">
+  <h2>Reading settings</h2>
+  <div id="settings-form"></div>
+  <p class="muted note">Saved on this device only. The font is set for your account on the
+    <a href="/preferences.html">Preferences</a> page.</p>
+  <button type="button" class="secondary" id="settings-close">Done</button>
+</dialog>
 
 <dialog id="toc">
   <h2>Contents</h2>

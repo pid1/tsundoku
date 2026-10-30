@@ -809,6 +809,16 @@ on first save, validated against a fixed set in `src/preferences.ts`. The only
 preference so far is `reader_font`: the publisher's fonts, or Atkinson
 Hyperlegible Next served from `public/fonts`.
 
+**Display settings are per device**, in localStorage, because the right text
+size for a phone is wrong for a laptop: theme (match system, light, dark), text
+size, line spacing and line length. One form (`deviceSettingsForm` in
+`public/app.js`) serves both the Preferences page, beside a live preview, and
+the reader's Aa panel, where changes restyle the open book immediately. The
+palettes target about 15:1 contrast (AAA is 7:1) with an off-white and a
+near-black rather than pure white and black, which cause halation for some
+readers; the measured ratios are in `app.js`. Dark mode resets every element's
+colour inside the book, since publishers routinely hard-code black text.
+
 ---
 
 ## 11. Operations
