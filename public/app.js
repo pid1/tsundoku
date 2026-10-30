@@ -214,10 +214,26 @@ export const DEVICE_SETTING_OPTIONS = {
   fontSize: { min: 14, max: 28, step: 1 },
   lineHeight: [[1.4, "Tight"], [1.5, "Snug"], [1.6, "Normal"], [1.8, "Relaxed"], [2, "Loose"]],
   lineLength: [[55, "Narrow"], [65, "Medium"], [75, "Wide"]],
+  // Space between the text and the edge of the screen, in CSS pixels.
+  // Horizontal has a floor so two-column layouts keep a gutter.
+  marginV: { min: 0, max: 96, step: 4 },
+  marginH: { min: 4, max: 96, step: 4 },
 };
 
-/** 18px, 1.6 and 65 characters: comfortable on a 13-15" laptop, and the usual guidance. */
-export const DEFAULT_DEVICE_SETTINGS = { theme: "system", fontSize: 18, lineHeight: 1.6, lineLength: 65 };
+/**
+ * 18px, 1.6 and 65 characters: comfortable on a 13-15" laptop, and the usual
+ * guidance. Margins default small, because on a phone foliate-js's own 48px
+ * top and bottom take a tenth of the screen from the text.
+ */
+export const DEFAULT_DEVICE_SETTINGS = {
+  theme: "system",
+  fontSize: 18,
+  lineHeight: 1.6,
+  lineLength: 65,
+  marginV: 16,
+  marginH: 20,
+  statusBar: true,
+};
 
 const DEVICE_SETTINGS_KEY = "tsundoku.readerSettings";
 
@@ -233,12 +249,18 @@ export function loadDeviceSettings() {
   }
   const d = DEFAULT_DEVICE_SETTINGS;
   const o = DEVICE_SETTING_OPTIONS;
-  const size = Number(raw.fontSize);
+  const range = (value, { min, max }, fallback) => {
+    const n = Number(value);
+    return value !== undefined && value !== null && Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
+  };
   return {
     theme: pick(raw.theme, o.theme, d.theme),
-    fontSize: Number.isFinite(size) ? Math.min(o.fontSize.max, Math.max(o.fontSize.min, Math.round(size))) : d.fontSize,
+    fontSize: range(raw.fontSize, o.fontSize, d.fontSize),
     lineHeight: pick(Number(raw.lineHeight), o.lineHeight, d.lineHeight),
     lineLength: pick(Number(raw.lineLength), o.lineLength, d.lineLength),
+    marginV: range(raw.marginV, o.marginV, d.marginV),
+    marginH: range(raw.marginH, o.marginH, d.marginH),
+    statusBar: typeof raw.statusBar === "boolean" ? raw.statusBar : d.statusBar,
   };
 }
 
@@ -266,6 +288,22 @@ export function lineLengthPx(settings) {
 }
 
 /**
+ * foliate-js's paginator attributes for these settings in a view `width`
+ * pixels wide. Its `margin` is the space above and below the text, in pixels.
+ * Its `gap` is a percentage of the width, and each side's margin works out to
+ * one gap (half outside the column, half inside it), so the horizontal margin
+ * is converted against the current width. Call it again when the width changes.
+ */
+export function paginatorLayout(settings, width) {
+  const gap = width > 0 ? Math.min(40, (settings.marginH / width) * 100) : 5;
+  return {
+    margin: `${settings.marginV}px`,
+    gap: `${gap.toFixed(3)}%`,
+    "max-inline-size": `${lineLengthPx(settings)}px`,
+  };
+}
+
+/**
  * CSS that applies the device settings to a book. Size and spacing override
  * the publisher with !important, as any reading app must for the settings to
  * do anything. In dark mode every element's colour and background is reset as
@@ -290,8 +328,9 @@ ${dark ? `body *:not(img):not(svg):not(svg *):not(video):not(a) {
 }
 
 /**
- * The settings controls, shared by the reader's panel and the Preferences
- * page. Each change is saved to this device and handed to `onChange`.
+ * The display controls, shared by the reader's Aa panel and the Preferences
+ * page so the two always offer the same things. Each change is saved to this
+ * device and handed to `onChange`.
  */
 export function deviceSettingsForm(settings, onChange) {
   const o = DEVICE_SETTING_OPTIONS;
@@ -320,19 +359,23 @@ export function deviceSettingsForm(settings, onChange) {
     ),
   );
 
-  const sizeValue = el("output", { class: "size-value", text: `${settings.fontSize}px` });
-  const step = (delta) => () => {
-    const next = Math.min(o.fontSize.max, Math.max(o.fontSize.min, settings.fontSize + delta));
-    sizeValue.textContent = `${next}px`;
-    update({ fontSize: next });
+  // A − value + control over a numeric setting.
+  const stepper = (key, unit, less, more, labels) => {
+    const { min, max, step } = o[key];
+    const value = el("output", { class: "size-value", text: `${settings[key]}${unit}` });
+    const by = (delta) => () => {
+      const next = Math.min(max, Math.max(min, settings[key] + delta));
+      value.textContent = `${next}${unit}`;
+      update({ [key]: next });
+    };
+    return el(
+      "div",
+      { class: "stepper" },
+      el("button", { type: "button", class: "secondary", "aria-label": labels[0], text: less, onclick: by(-step) }),
+      value,
+      el("button", { type: "button", class: "secondary", "aria-label": labels[1], text: more, onclick: by(step) }),
+    );
   };
-  const size = el(
-    "div",
-    { class: "stepper" },
-    el("button", { type: "button", class: "secondary", "aria-label": "Smaller text", text: "A−", onclick: step(-1) }),
-    sizeValue,
-    el("button", { type: "button", class: "secondary", "aria-label": "Larger text", text: "A+", onclick: step(1) }),
-  );
 
   const select = (id, options, value, key) =>
     el(
@@ -344,16 +387,83 @@ export function deviceSettingsForm(settings, onChange) {
   const field = (label, control, id) =>
     el("div", { class: "field" }, el(id ? "label" : "span", { class: "label", for: id, text: label }), control);
 
+  const statusBar = el(
+    "label",
+    { class: "check" },
+    el("input", {
+      type: "checkbox",
+      checked: settings.statusBar,
+      onchange: (event) => update({ statusBar: event.target.checked }),
+    }),
+    el("span", { text: "Show the status bar (chapter and progress) below the page" }),
+  );
+
   return el(
     "div",
     { class: "device-settings" },
     field("Theme", theme),
-    field("Text size", size),
+    field("Text size", stepper("fontSize", "px", "A−", "A+", ["Smaller text", "Larger text"])),
     el(
       "div",
       { class: "row" },
       field("Line spacing", select("ds-line-height", o.lineHeight, settings.lineHeight, "lineHeight"), "ds-line-height"),
       field("Line length", select("ds-line-length", o.lineLength, settings.lineLength, "lineLength"), "ds-line-length"),
     ),
+    el(
+      "div",
+      { class: "row" },
+      field("Top and bottom margin", stepper("marginV", "px", "−", "+", ["Less top and bottom margin", "More top and bottom margin"])),
+      field("Side margin", stepper("marginH", "px", "−", "+", ["Less side margin", "More side margin"])),
+    ),
+    field("Status bar", statusBar),
   );
+}
+
+/** A CSS font-family for a reader font; a book serif stands in for the publisher's own. */
+export function fontStack(key) {
+  const font = READER_FONTS[key];
+  return font?.family ? `"${font.family}", system-ui, sans-serif` : `Georgia, "Iowan Old Style", "Palatino Linotype", serif`;
+}
+
+/**
+ * The font choice, shared by the reader's Aa panel and the Preferences page.
+ * Unlike the display settings this is saved to the account, so each change is
+ * sent to the server; `onChange` gets the new key once it is saved, and
+ * `onError` the message if it is not.
+ */
+export function readerFontForm(current, onChange, onError) {
+  const fieldset = el(
+    "fieldset",
+    { class: "choices" },
+    ...Object.entries(READER_FONTS).map(([key, font]) =>
+      el(
+        "label",
+        { class: "choice" },
+        el("input", { type: "radio", name: "reader_font", value: key, checked: current === key }),
+        el("span", { text: font.label }),
+        el("span", {
+          class: "sample",
+          // The book's own fonts are usually a serif, and the UI is not, so
+          // that option's sample is drawn in one rather than in the UI face.
+          style: `font-family: ${fontStack(key)}`,
+          text: font.family ? "Il1 O0 rn m — the quick brown fox jumps over the lazy dog." : "Whatever the publisher chose, or your browser's default.",
+        }),
+      ),
+    ),
+  );
+  fieldset.addEventListener("change", async (event) => {
+    const previous = current;
+    fieldset.disabled = true;
+    try {
+      await api("/api/preferences", { method: "PATCH", body: JSON.stringify({ reader_font: event.target.value }) });
+      current = event.target.value;
+      onChange(current);
+    } catch (error) {
+      for (const input of fieldset.querySelectorAll("input")) input.checked = input.value === previous;
+      onError?.(error.message);
+    } finally {
+      fieldset.disabled = false;
+    }
+  });
+  return fieldset;
 }

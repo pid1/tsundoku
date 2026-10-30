@@ -11,12 +11,15 @@ import "/vendor/foliate-js/view.js";
 import {
   api,
   deviceSettingsForm,
+  fontFaceCss,
   formatBytes,
-  lineLengthPx,
   loadDeviceSettings,
+  paginatorLayout,
   READABLE_FORMATS,
+  READER_FONTS,
   readerDisplayCss,
   readerFontCss,
+  readerFontForm,
   resolveTheme,
 } from "/app.js";
 import { fromXPointer, isXPointer, toXPointer } from "/xpointer.js";
@@ -237,19 +240,48 @@ async function main() {
   $("stage").append(view);
   await view.open(file);
 
-  // Display settings are per device and apply live: the panel's controls call
-  // applyDisplay, and a "Match system" theme follows the OS as it changes.
+  // Everything in the Aa panel applies live. Display settings are per device;
+  // the font is the account's, saved by the form and then applied here too.
+  // A "Match system" theme follows the OS, and the side margin, which foliate
+  // takes as a percentage, is recomputed whenever the page changes width.
   let display = loadDeviceSettings();
+  let font = prefs.reader_font;
+  const layout = () => {
+    const attrs = paginatorLayout(display, $("stage").clientWidth);
+    for (const [name, value] of Object.entries(attrs)) {
+      if (view.renderer.getAttribute(name) !== value) view.renderer.setAttribute(name, value);
+    }
+  };
   const applyDisplay = (settings) => {
     display = settings;
     document.documentElement.dataset.theme = resolveTheme(settings.theme);
-    view.renderer.setStyles?.(BASE_CSS + readerDisplayCss(settings) + readerFontCss(prefs.reader_font));
-    view.renderer.setAttribute("max-inline-size", `${lineLengthPx(settings)}px`);
+    $("footer").hidden = !settings.statusBar;
+    view.renderer.setStyles?.(BASE_CSS + readerDisplayCss(settings) + readerFontCss(font));
+    layout();
   };
   applyDisplay(display);
+  new ResizeObserver(layout).observe($("stage"));
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (display.theme === "system") applyDisplay(display);
   });
+
+  // The font samples in the panel need the faces loaded on this page too.
+  const faces = document.createElement("style");
+  faces.textContent = Object.keys(READER_FONTS).map(fontFaceCss).join("\n");
+  document.head.append(faces);
+  $("settings-font").replaceChildren(
+    readerFontForm(
+      font,
+      (next) => {
+        font = next;
+        applyDisplay(display);
+      },
+      (message) => {
+        $("settings-msg").textContent = message;
+        $("settings-msg").hidden = false;
+      },
+    ),
+  );
   $("settings-form").replaceChildren(deviceSettingsForm({ ...display }, applyDisplay));
   $("display").addEventListener("click", () => $("settings").showModal());
   $("settings-close").addEventListener("click", () => $("settings").close());
