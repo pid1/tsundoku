@@ -49,7 +49,7 @@ const get = (path, init = {}) =>
 async function main() {
   section("Unauthenticated behaviour");
   {
-    const response = await fetch(`${BASE}/opds/1.2`, { redirect: "manual" });
+    const response = await fetch(`${BASE}/opds/2.0`, { redirect: "manual" });
     check("catalog without credentials is 401", response.status === 401, `got ${response.status}`);
     check(
       "401 carries a WWW-Authenticate Basic challenge",
@@ -75,54 +75,11 @@ async function main() {
     check("healthcheck is public and returns the kosync shape", healthBody?.state === "OK");
   }
 
-  section("OPDS 1.2");
+  section("OPDS 2.0");
   let firstBookHref = null;
   {
-    const root = await get("/opds/1.2");
-    const rootType = root.headers.get("content-type") ?? "";
-    check("root feed is 200", root.status === 200, `got ${root.status}`);
-    check("root declares kind=navigation", rootType.includes("kind=navigation"), rootType);
-
-    const rootXml = await root.text();
-    check("root offers a search link", rootXml.includes('rel="search"'));
-    check("root links to new additions", rootXml.includes("/opds/1.2/new"));
-
-    const acq = await get("/opds/1.2/new");
-    const acqType = acq.headers.get("content-type") ?? "";
-    check("acquisition feed declares kind=acquisition", acqType.includes("kind=acquisition"), acqType);
-
-    const acqXml = await acq.text();
-    check("acquisition feed carries OpenSearch totals", acqXml.includes("opensearch:totalResults"));
-
-    const entryCount = (acqXml.match(/<entry>/g) ?? []).length;
-    console.log(`       (${entryCount} entries in the first page)`);
-    if (entryCount > 0) {
-      check("entries carry an acquisition link", acqXml.includes('rel="http://opds-spec.org/acquisition"'));
-      firstBookHref = /rel="http:\/\/opds-spec\.org\/acquisition" href="([^"]+)"/.exec(acqXml)?.[1] ?? null;
-    } else {
-      console.log("       (upload a book to exercise the download and cover checks)");
-    }
-
-    const opensearch = await get("/opds/1.2/opensearch.xml");
-    const osXml = await opensearch.text();
-    check("OpenSearch description declares {searchTerms}", osXml.includes("{searchTerms}"));
-    check(
-      "OpenSearch template types results as an acquisition feed",
-      osXml.includes("kind=acquisition"),
-    );
-
-    for (const path of ["/opds/1.2/authors", "/opds/1.2/series", "/opds/1.2/tags"]) {
-      const response = await get(path);
-      check(`${path} is 200`, response.status === 200, `got ${response.status}`);
-    }
-
-    const search = await get("/opds/1.2/search?q=a");
-    check("search returns an acquisition feed", (search.headers.get("content-type") ?? "").includes("kind=acquisition"));
-  }
-
-  section("OPDS 2.0");
-  {
     const root = await get("/opds/2.0");
+    check("root is 200", root.status === 200, `got ${root.status}`);
     check("root is application/opds+json", (root.headers.get("content-type") ?? "").includes("application/opds+json"));
     const body = await root.json();
     check("root has a title", typeof body?.metadata?.title === "string");
@@ -134,22 +91,41 @@ async function main() {
     check("acquisition feed has a publications collection", Array.isArray(feed?.publications));
     const search = (feed?.links ?? []).find((l) => l.rel === "search");
     check("search link is templated", search?.templated === true);
+
+    const publications = feed?.publications ?? [];
+    console.log(`       (${publications.length} publications in the first page)`);
+    if (publications.length > 0) {
+      const acquisition = (publications[0].links ?? []).find((l) => l.rel === "http://opds-spec.org/acquisition");
+      check("publications carry an acquisition link", !!acquisition?.href);
+      firstBookHref = acquisition?.href ?? null;
+    } else {
+      console.log("       (upload a book to exercise the download and cover checks)");
+    }
+
+    for (const path of ["/opds/2.0/books", "/opds/2.0/authors", "/opds/2.0/series", "/opds/2.0/tags", "/opds/2.0/search?query=a"]) {
+      const response = await get(path);
+      check(`${path} is 200 JSON`, response.status === 200 && (response.headers.get("content-type") ?? "").includes("json"), `got ${response.status}`);
+    }
   }
 
-  section("Content negotiation");
+  section("Addresses");
   {
     const redirect = await fetch(`${BASE}/opds`, { redirect: "manual", headers: { authorization: basic } });
     check("/opds redirects", redirect.status === 302, `got ${redirect.status}`);
     check(
-      "/opds defaults to 1.2, which is what the installed base speaks",
-      (redirect.headers.get("location") ?? "").endsWith("/opds/1.2"),
+      "/opds points at the OPDS 2.0 catalog",
+      (redirect.headers.get("location") ?? "").endsWith("/opds/2.0"),
       redirect.headers.get("location") ?? "absent",
     );
+    const gone = await get("/opds/1.2");
+    check("/opds/1.2 answers 410 Gone, now that 1.2 is removed", gone.status === 410, `got ${gone.status}`);
   }
 
   if (firstBookHref) {
     section("Download");
-    const path = firstBookHref.replace(BASE, "");
+    // The path only: a server behind a proxy or `wrangler dev` may name
+    // another origin in its links than the one we reached it on.
+    const path = new URL(firstBookHref, BASE).pathname;
     const head = await get(path, { method: "HEAD" });
     check("HEAD on a book is 200", head.status === 200, `got ${head.status}`);
     check("book advertises byte ranges", head.headers.get("accept-ranges") === "bytes");
@@ -183,7 +159,9 @@ async function main() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ username: "conformance-probe", password: md5("x") }),
     });
-    check("self-registration is refused with 403", register.status === 403, `got ${register.status}`);
+    // 402 with code 2005, as the reference kosync server answers; pinned in
+    // test/unit/kosync-errors.test.ts.
+    check("self-registration is refused with 402", register.status === 402, `got ${register.status}`);
 
     // Deliberately stable, not `conformance-${Date.now()}`. A fresh id per run
     // left one permanent reading position behind every time the suite was run

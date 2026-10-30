@@ -1,6 +1,10 @@
 import type { BookView, Page } from "../types.js";
 import { CT } from "../http/responses.js";
-import type { FeedContext } from "./atom.js";
+/** What every feed needs to know about the request it is answering. */
+export interface FeedContext {
+  origin: string;
+  catalogTitle: string;
+}
 
 export interface JsonLink {
   rel?: string | string[];

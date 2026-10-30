@@ -26,21 +26,25 @@
     Sign-in is the username and password you were given; there is no self-registration.
   </p>
 
-  <h2>KOReader &mdash; catalog</h2>
-  <ol>
-    <li><strong>Search</strong> &rarr; <strong>OPDS catalog</strong> &rarr; <strong>+</strong></li>
-    <li>Title: <span class="mono">tsundoku</span></li>
-    <li>URL: <span class="mono">https://books.example.com/opds/1.2</span></li>
-    <li>Fill in your username and password.</li>
-  </ol>
-  <p class="muted">Long-press a book to download it.</p>
+  <h2>The catalog</h2>
+  <p>
+    The catalog is OPDS 2.0, at <span class="mono">https://books.example.com/opds/2.0</span>. Give that address,
+    with your username and password, to any reader that speaks OPDS 2.0: a recent KOReader, CrossPoint or
+    Thorium. Readers that only speak the older OPDS 1.2 cannot use it.
+  </p>
+  <p>
+    In KOReader: <strong>Search</strong> &rarr; <strong>OPDS catalog</strong> &rarr; <strong>+</strong>, with
+    the title <span class="mono">tsundoku</span> and the address above. Long-press a book to download it.
+  </p>
 
   <h2>KOReader &mdash; progress sync</h2>
   <ol>
     <li><strong>Tools</strong> &rarr; <strong>More tools</strong> &rarr; <strong>Progress sync</strong></li>
     <li><strong>Custom sync server</strong>: <span class="mono">https://books.example.com</span>
         &mdash; the base address, with no path after it.</li>
-    <li>Choose <strong>Login</strong>, not Register. Registration is disabled and answers 403.</li>
+    <li>Choose <strong>Login</strong>, not Register. Registration is disabled and refuses.</li>
+    <li>Sign in with the <strong>same account on every device</strong>, the web reader included.
+        Positions are kept per account.</li>
     <li>Set <strong>Document matching method</strong> the same on every device.
         <span class="mono">binary</span> is the default and the right choice; <span class="mono">filename</span>
         breaks as soon as you rename a file.</li>
@@ -48,30 +52,22 @@
         beside positions in the web UI.</li>
   </ol>
 
-  <h2>Thorium Reader</h2>
-  <p>
-    <strong>Catalogs</strong> &rarr; <strong>Add catalog</strong> &rarr;
-    <span class="mono">https://books.example.com/opds/2.0</span>. Thorium speaks OPDS 2.0,
-    so give it the JSON feed.
-  </p>
-
-  <h2>Everything else</h2>
-  <p>
-    FBReader, Moon+ Reader, PocketBook, Panels and Aldiko all speak OPDS 1.2. Give them
-    <span class="mono">https://books.example.com/opds/1.2</span> with the same credentials.
-  </p>
-
   <h2>Reading in the browser</h2>
   <p>
     Click a book's cover or title in the library. Turn pages with the arrow keys, or tap the left or right
     third of the page. EPUB and CBZ positions sync with KOReader: put the book down on your e-reader and pick
-    it up on your phone where you stopped, and the other way round. Set the reading font under
-    <a href="/preferences.html">Preferences</a>.
+    it up on your phone where you stopped, and the other way round. For that, every device needs the same
+    copy of the book: download it from this catalog rather than sideloading a copy from elsewhere.
+  </p>
+  <p>
+    The <strong>Aa</strong> button sets the font, theme, text size, spacing, line length, columns, margins and
+    the status bar. The font is saved to your account; the rest to this browser. The same settings, with a
+    preview, are under <a href="/preferences.html">Preferences</a>.
   </p>
 
   <h2>Checking it by hand</h2>
-  <pre class="mono" style="white-space:pre-wrap">curl -u you:secret https://books.example.com/opds/1.2
-curl -u you:secret -H 'Accept: application/opds+json' https://books.example.com/opds/2.0/new
+  <pre class="mono" style="white-space:pre-wrap">curl -u you:secret https://books.example.com/opds/2.0
+curl -u you:secret https://books.example.com/opds/2.0/new
 curl https://books.example.com/healthcheck</pre>
 </main>
 </body>

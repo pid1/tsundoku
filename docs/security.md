@@ -47,4 +47,4 @@ A book is untrusted content. The reader renders each chapter in a `blob:` frame,
 
 1. **The KOReader document hash is settled against LuaJIT, not yet against a device.** `bit.lshift(1024, -2)` returns `0` in real LuaJIT, because the shift count is masked to five bits. So the first sample is at offset 0, and `partial_md5` is the column KOReader computes. KOReader's loop was run in LuaJIT and matched both stored columns byte for byte on files up to 3.6 MB, and that pair is pinned in `test/unit/partialmd5.test.ts`. What's still unconfirmed is what a given KOReader build writes to its sidecar. [`test/conformance/partial-md5.md`](../test/conformance/partial-md5.md) has the evidence and the device procedure.
 2. **Reader quirks, not specs, are the real compatibility risk.** KOReader has a history of OPDS sign-in bugs across versions. Test against devices.
-3. **OPDS 2.0 support in readers is thin.** It's built and correct, but 1.2 is what gets used.
+3. **The catalog is OPDS 2.0 only.** OPDS 1.2 was removed once the readers in use (a recent KOReader, CrossPoint) were confirmed to speak 2.0. A reader that only speaks 1.2 can't browse it.

@@ -30,7 +30,7 @@ It's built for a household, not the public. Every page but the sign-in page need
 
 ## What it does
 
-- Serves an OPDS 1.2 and 2.0 catalog to KOReader, Thorium, FBReader, Panels and any other OPDS reader.
+- Serves an OPDS 2.0 catalog to KOReader, CrossPoint, Thorium and any other reader that speaks OPDS 2.0.
 - Reads metadata and covers out of EPUB and CBZ files on upload, without downloading them.
 - Syncs reading positions between devices with KOReader's own kosync protocol.
 - Shows every device's position on every book, and whether they agree.
@@ -100,12 +100,11 @@ Then sign in, create an account for each reader on the **Admin** page, and conne
 
 | Reader | Where | Address |
 |---|---|---|
-| KOReader, catalog | Search → OPDS catalog → + | `https://DOMAIN/opds/1.2` |
+| KOReader, catalog | Search → OPDS catalog → + | `https://DOMAIN/opds/2.0` |
 | KOReader, progress sync | Tools → More tools → Progress sync → Custom sync server | `https://DOMAIN` |
-| Thorium | Catalogs → Add catalog | `https://DOMAIN/opds/2.0` |
-| FBReader, Moon+ Reader, PocketBook, Panels, Aldiko | Add an OPDS catalog | `https://DOMAIN/opds/1.2` |
+| CrossPoint, Thorium, any OPDS 2.0 reader | Add an OPDS catalog | `https://DOMAIN/opds/2.0` |
 
-Sign in with the same account on every device, the web reader included. Positions are kept per account, so a device on another account never sees them. The running server has the same instructions at `/help.html`.
+The catalog is OPDS 2.0 only. Readers that only speak the older OPDS 1.2 can't use it. Sign in with the same account on every device, the web reader included. Positions are kept per account, so a device on another account never sees them. The running server has the same instructions at `/help.html`.
 
 ## Design principles
 
@@ -113,7 +112,7 @@ Sign in with the same account on every device, the web reader included. Position
 - **Readers' own protocols.** OPDS and kosync, so the reader you already use works without a plugin.
 - **No build step.** TypeScript that wrangler bundles, and a UI of plain ES modules. No framework, no bundler.
 - **Closed by default.** No public catalog, no self-signup, and no DRM or lending.
-- **The pipeline shapes, renderers display.** OPDS 1.2, OPDS 2.0 and the web UI are three renderings of one query.
+- **The pipeline shapes, renderers display.** The OPDS 2.0 catalog and the web UI are two renderings of one query.
 - **Trade-offs written down.** Where the free tier forced a choice, like how passwords are stored, [docs/security.md](docs/security.md) says what was traded and why.
 
 ## License

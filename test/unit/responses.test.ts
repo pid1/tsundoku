@@ -3,18 +3,18 @@ import { redirect, securityHeaders } from "../../src/http/responses.js";
 
 describe("redirect", () => {
   it("sets the status and Location", () => {
-    const res = redirect("https://books.example.com/opds/1.2", 302);
+    const res = redirect("https://books.example.com/opds/2.0", 302);
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("https://books.example.com/opds/1.2");
+    expect(res.headers.get("location")).toBe("https://books.example.com/opds/2.0");
   });
 
   // The regression: /opds built its redirect with Response.redirect(), whose
   // headers are immutable, and securityHeaders() writes to every response
   // leaving the router. The catalog root answered 500 instead of redirecting.
   it("survives securityHeaders, unlike Response.redirect()", () => {
-    const res = securityHeaders(redirect("https://books.example.com/opds/1.2"));
+    const res = securityHeaders(redirect("https://books.example.com/opds/2.0"));
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("https://books.example.com/opds/1.2");
+    expect(res.headers.get("location")).toBe("https://books.example.com/opds/2.0");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 });
@@ -29,10 +29,10 @@ describe("securityHeaders", () => {
   });
 
   it("copies rather than throwing when the headers are immutable", async () => {
-    const immutable = Response.redirect("https://books.example.com/opds/1.2", 302);
+    const immutable = Response.redirect("https://books.example.com/opds/2.0", 302);
     const res = securityHeaders(immutable);
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("https://books.example.com/opds/1.2");
+    expect(res.headers.get("location")).toBe("https://books.example.com/opds/2.0");
     expect(res.headers.get("strict-transport-security")).toContain("max-age=31536000");
   });
 

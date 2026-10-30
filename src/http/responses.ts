@@ -1,11 +1,7 @@
 export const CT = {
-  opdsNav: "application/atom+xml;profile=opds-catalog;kind=navigation",
-  opdsAcq: "application/atom+xml;profile=opds-catalog;kind=acquisition",
-  opdsEntry: "application/atom+xml;type=entry;profile=opds-catalog",
   opdsJson: "application/opds+json",
   opdsPublication: "application/opds-publication+json",
   opdsAuth: "application/opds-authentication+json",
-  openSearch: "application/opensearchdescription+xml",
   json: "application/json; charset=utf-8",
   kosync: "application/vnd.koreader.v1+json",
 } as const;
@@ -22,13 +18,6 @@ export function kosyncJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": CT.kosync },
-  });
-}
-
-export function xml(body: string, contentType: string, init: ResponseInit = {}): Response {
-  return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n${body}`, {
-    ...init,
-    headers: { "content-type": `${contentType}; charset=utf-8`, ...(init.headers ?? {}) },
   });
 }
 

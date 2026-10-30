@@ -1,7 +1,7 @@
 # tsundoku — project plan
 
 > 積ん読 — acquiring books and letting them pile up unread.
-> A single-Worker, free-tier OPDS 1.2 + 2.0 catalog with an authenticated upload
+> A single-Worker, free-tier OPDS 2.0 catalog with an authenticated upload
 > UI and a KOReader-compatible progress sync server.
 
 **Status: implemented, not yet deployed.** Phases 0-8 are built, typechecked and
@@ -16,9 +16,10 @@ those points are marked **[changed in build]**.
 One Cloudflare Worker, one R2 bucket, one D1 database, deployed with one
 `wrangler deploy`, that does three jobs:
 
-1. **Serves an authenticated OPDS catalog** — both 1.2 (Atom/XML, what every
-   reader actually speaks) and 2.0 (JSON), so KOReader, Thorium, FBReader,
-   Panels and friends can browse and download.
+1. **Serves an authenticated OPDS catalog** — OPDS 2.0 (JSON), so KOReader,
+   CrossPoint, Thorium and friends can browse and download. **[changed in
+   build]** It began as 1.2 (Atom) and 2.0 side by side; 1.2 was removed in
+   section 8's note below.
 2. **Accepts uploads through a web UI** — drag an `.epub` in, get metadata and a
    cover extracted server-side, stored in R2, indexed in D1.
 3. **Runs a kosync-compatible sync server** — so reading position follows you
@@ -509,6 +510,15 @@ measure rather than assume.
 ---
 
 ## 8. The OPDS surface
+
+**[changed in build] OPDS 1.2 removed; the catalog is 2.0 only.** The plan below
+served both, on the reasoning that 1.2 was what readers actually spoke. Once a
+recent KOReader and CrossPoint, the readers in use, were confirmed to browse and
+download over 2.0, 1.2 was dropped: `src/opds/atom.ts`, `src/opds/opensearch.ts`,
+the `/opds/1.2/*` routes and the feed ETag helper are gone. `/opds` redirects to
+`/opds/2.0`, and `/opds/1.2/*` answers 410 Gone with the new address, so a
+forgotten reader gets a reason rather than a bare 404. The 1.2 material below is
+kept as the record of what was built and why.
 
 Both versions render **the same query results** through different serializers.
 Adding a shelf means adding one query, not two endpoints.
