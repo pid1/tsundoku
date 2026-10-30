@@ -4,13 +4,33 @@
 
 ## Screens
 
+The demo library is public-domain books from [Standard Ebooks](https://standardebooks.org).
+
 <p align="center">
-  <img src="docs/screenshots/sync.png" alt="The sync view: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are" width="100%">
+  <img src="docs/screenshots/reader-desktop.png" alt="The web reader on a laptop: Pride and Prejudice, Chapter 1, in two columns" width="100%">
+  <br><em>The web reader on a laptop: two columns, in Atkinson Hyperlegible Next.</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/library-mobile.jpg" alt="The library on a phone: two columns of book covers" width="24%">
+  <img src="docs/screenshots/reader-mobile.png" alt="The web reader on a phone in the light theme" width="24%">
+  <img src="docs/screenshots/reader-mobile-dark.png" alt="The web reader on a phone in the dark theme" width="24%">
+  <img src="docs/screenshots/settings-mobile.png" alt="The reader's Aa panel on a phone: font, theme, text size and spacing" width="24%">
+  <br><em>On a phone: the library, the reader in light and dark, and the Aa panel.</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/preferences-desktop.png" alt="The Preferences page: font and reading settings beside a live preview" width="100%">
+  <br><em>Preferences: the font for your account, the reading settings for this device, and a live preview.</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/sync-desktop.png" alt="The Sync page: reading positions grouped by book, each listing its devices, how far through each is and how far behind the others" width="100%">
   <br><em>Sync: every device's position on every book, and whether they agree.</em>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/admin.png" alt="The administration view: storage against the R2 free tier, the user list, and the form for adding a user" width="100%">
+  <img src="docs/screenshots/admin-desktop.png" alt="The Administration page: storage against the R2 free tier, the users, and the form for adding one" width="100%">
   <br><em>Administration: storage against the free tier, and the accounts.</em>
 </p>
 

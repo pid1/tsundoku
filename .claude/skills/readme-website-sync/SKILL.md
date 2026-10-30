@@ -51,7 +51,7 @@ A new README section needs a new site section with its own marker. A removed or 
 
 ## Things that go stale
 
-- **Screenshots** in `docs/screenshots/` are shared by the README, USAGE.md and the site. When the UI changes visibly, say in the PR that they need retaking. Never edit an image to fake a UI it doesn't show.
+- **Screenshots** in `docs/screenshots/` are shared by the README, USAGE.md and the site. When the UI changes visibly, retake them, or say in the PR that they need it. Never edit an image to fake a UI it doesn't show, and never show a copyrighted book. The current set came from a fresh local instance (`wrangler dev --persist-to` a new folder) holding only public-domain books from Standard Ebooks, with demo sync positions pushed through kosync, captured with Playwright at 2× density: desktop at 1440×900, downscaled to 2000px wide, and phone at 390×844. Shots full of cover art are JPEG; the rest are PNG. Keep the file names, which the README, USAGE.md and the site all reference.
 - **Version tags and release links.** Link to the releases page rather than a single tag, unless the README does.
 - **Counts and limits** ("2,000–5,000 EPUBs", free-tier figures) come from USAGE.md's free-tier table, which records the date the figures were read. Keep the site's date in step.
 - **Removed features.** The site's old "What it is not" list once said "No in-browser reader" long after the reader shipped. When a non-goal becomes a feature, delete the non-goal everywhere.
