@@ -213,7 +213,13 @@ export const DEVICE_SETTING_OPTIONS = {
   theme: [["system", "Match system"], ["light", "Light"], ["dark", "Dark"]],
   fontSize: { min: 14, max: 28, step: 1 },
   lineHeight: [[1.4, "Tight"], [1.5, "Snug"], [1.6, "Normal"], [1.8, "Relaxed"], [2, "Loose"]],
-  lineLength: [[55, "Narrow"], [65, "Medium"], [75, "Wide"]],
+  // Each column is capped at the line length, and whatever width is left over
+  // becomes margin. "Full width" (0) lifts the cap, so the side margin is the
+  // whole margin.
+  lineLength: [[55, "Narrow"], [65, "Medium"], [75, "Wide"], [0, "Full width"]],
+  // Two columns need a landscape-shaped page: foliate-js shows one on a page
+  // taller than it is wide, whatever this says.
+  columns: [[1, "One"], [2, "Two"]],
   // Space between the text and the edge of the screen, in CSS pixels.
   // Horizontal has a floor so two-column layouts keep a gutter.
   marginV: { min: 0, max: 96, step: 4 },
@@ -230,6 +236,7 @@ export const DEFAULT_DEVICE_SETTINGS = {
   fontSize: 18,
   lineHeight: 1.6,
   lineLength: 65,
+  columns: 2,
   marginV: 16,
   marginH: 20,
   statusBar: true,
@@ -258,6 +265,7 @@ export function loadDeviceSettings() {
     fontSize: range(raw.fontSize, o.fontSize, d.fontSize),
     lineHeight: pick(Number(raw.lineHeight), o.lineHeight, d.lineHeight),
     lineLength: pick(Number(raw.lineLength), o.lineLength, d.lineLength),
+    columns: pick(Number(raw.columns), o.columns, d.columns),
     marginV: range(raw.marginV, o.marginV, d.marginV),
     marginH: range(raw.marginH, o.marginH, d.marginH),
     statusBar: typeof raw.statusBar === "boolean" ? raw.statusBar : d.statusBar,
@@ -299,7 +307,11 @@ export function paginatorLayout(settings, width) {
   return {
     margin: `${settings.marginV}px`,
     gap: `${gap.toFixed(3)}%`,
-    "max-inline-size": `${lineLengthPx(settings)}px`,
+    // foliate shows min(columns, ceil(width / cap)) columns. Full width has no
+    // cap of its own, so the cap is the width split by the column count: wide
+    // enough to fill the page, narrow enough that the count still comes out right.
+    "max-inline-size": `${settings.lineLength ? lineLengthPx(settings) : Math.max(1, Math.floor(width / settings.columns))}px`,
+    "max-column-count": String(settings.columns),
   };
 }
 
@@ -340,24 +352,26 @@ export function deviceSettingsForm(settings, onChange) {
     onChange({ ...settings });
   };
 
-  const theme = el(
-    "div",
-    { class: "segmented", role: "radiogroup", "aria-label": "Theme" },
-    ...o.theme.map(([value, label]) =>
-      el(
-        "label",
-        {},
-        el("input", {
-          type: "radio",
-          name: "reader-theme",
-          value,
-          checked: settings.theme === value,
-          onchange: () => update({ theme: value }),
-        }),
-        el("span", { text: label }),
+  // A row of mutually exclusive buttons over one setting.
+  const segmented = (key, label) =>
+    el(
+      "div",
+      { class: "segmented", role: "radiogroup", "aria-label": label },
+      ...o[key].map(([value, text]) =>
+        el(
+          "label",
+          {},
+          el("input", {
+            type: "radio",
+            name: `reader-${key}`,
+            value: String(value),
+            checked: settings[key] === value,
+            onchange: () => update({ [key]: value }),
+          }),
+          el("span", { text }),
+        ),
       ),
-    ),
-  );
+    );
 
   // A − value + control over a numeric setting.
   const stepper = (key, unit, less, more, labels) => {
@@ -401,7 +415,7 @@ export function deviceSettingsForm(settings, onChange) {
   return el(
     "div",
     { class: "device-settings" },
-    field("Theme", theme),
+    field("Theme", segmented("theme", "Theme")),
     field("Text size", stepper("fontSize", "px", "A−", "A+", ["Smaller text", "Larger text"])),
     el(
       "div",
@@ -409,6 +423,7 @@ export function deviceSettingsForm(settings, onChange) {
       field("Line spacing", select("ds-line-height", o.lineHeight, settings.lineHeight, "lineHeight"), "ds-line-height"),
       field("Line length", select("ds-line-length", o.lineLength, settings.lineLength, "lineLength"), "ds-line-length"),
     ),
+    field("Columns", segmented("columns", "Columns")),
     el(
       "div",
       { class: "row" },

@@ -34,8 +34,10 @@ It's built for a household, not the public. Every page but the sign-in page need
 - Reads metadata and covers out of EPUB and CBZ files on upload, without downloading them.
 - Syncs reading positions between devices with KOReader's own kosync protocol.
 - Shows every device's position on every book, and whether they agree.
-- Opens EPUB, CBZ, MOBI, AZW3 and FB2 in the browser, and syncs that position with KOReader too.
-- Sets books in Atkinson Hyperlegible Next if you like, with a light and a dark theme and adjustable size and spacing on each device.
+- Opens EPUB, CBZ, MOBI, AZW3 and FB2 in the browser, and syncs that position with KOReader too. Opening a book never overwrites your e-reader's place; only turning a page saves.
+- Sets books in the publisher's fonts or Atkinson Hyperlegible Next, a choice saved to your account.
+- Lets each device choose its own light or dark theme, text size, line spacing, line length (up to full width), one or two columns, top-and-bottom and side margins, and whether to show the status bar. Change them while reading from the **Aa** button, or on the Preferences page with a live preview.
+- Keeps a book's own scripts from running, so an untrusted EPUB can't act as you.
 - Stores up to roughly 2,000–5,000 EPUBs before it outgrows the free tier.
 
 ## Install
