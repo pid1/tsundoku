@@ -73,8 +73,24 @@
     background: var(--panel);
     color: var(--ink);
   }
-  .panel-dialog h2 { margin: 0 0 1rem; }
-  .panel-dialog .note { font-size: 0.8rem; margin: 0.25rem 0 1rem; }
+  .panel-dialog { max-height: min(85dvh, 44rem); overflow-y: auto; }
+  .panel-dialog .panel-head {
+    position: sticky;
+    top: -1rem;
+    margin: -1rem -1.1rem 0.5rem;
+    padding: 1rem 1.1rem 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    z-index: 1;
+  }
+  .panel-dialog h2 { margin: 0; }
+  .panel-dialog h3 { margin: 1rem 0 0.1rem; font-size: 1rem; }
+  .panel-dialog .note { font-size: 0.8rem; margin: 0 0 0.6rem; }
+  .bar.bottom[hidden] { display: none; }
   .bar .bar-actions { display: flex; gap: 0.4rem; }
   #toc { max-width: min(32rem, calc(100vw - 32px)); max-height: 80dvh; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--ink); }
   #toc h2 { margin: 0; padding: 1rem 1rem 0.5rem; }
@@ -98,18 +114,25 @@
   <div id="status">Opening&hellip;</div>
 </div>
 
-<footer class="bar bottom">
+<footer class="bar bottom" id="footer">
   <span class="chapter" id="chapter"></span>
   <span id="sync" title=""></span>
   <span class="pct" id="pct"></span>
 </footer>
 
 <dialog id="settings" class="panel-dialog">
-  <h2>Reading settings</h2>
-  <div id="settings-form"></div>
-  <p class="muted note">Saved on this device only. The font is set for your account on the
+  <div class="panel-head">
+    <h2>Reading settings</h2>
+    <button type="button" class="secondary" id="settings-close">Done</button>
+  </div>
+  <div id="settings-msg" class="msg error" hidden></div>
+  <h3>Font</h3>
+  <p class="muted note">Saved to your account, for every browser.</p>
+  <div id="settings-font"></div>
+  <h3>On this device</h3>
+  <p class="muted note">Saved in this browser only. The same settings are on the
     <a href="/preferences.html">Preferences</a> page.</p>
-  <button type="button" class="secondary" id="settings-close">Done</button>
+  <div id="settings-form"></div>
 </dialog>
 
 <dialog id="toc">

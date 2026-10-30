@@ -33,14 +33,15 @@
       The font the web reader sets books in. Saved to your account, so it applies in every browser you sign in
       from. E-readers keep their own font settings.
     </p>
-    <fieldset class="choices" id="fonts" disabled></fieldset>
+    <div id="fonts"></div>
   </section>
 
   <section class="panel" style="margin-top:1.25rem">
     <h2 style="margin-top:0">Reading on this device</h2>
     <p class="muted" style="font-size:0.9rem">
-      Theme, text size and spacing for the web reader. Saved in this browser only, so a phone and a laptop
-      can each have their own. You can also change these while reading, from the <strong>Aa</strong> button.
+      Theme, text size, spacing, margins and the status bar for the web reader. Saved in this browser only, so
+      a phone and a laptop can each have their own. The reader's <strong>Aa</strong> button has the same
+      settings, the font included.
     </p>
     <div id="device"></div>
   </section>
@@ -65,21 +66,6 @@
 </main>
 
 <style>
-  .choices { border: 0; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
-  .choice {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.25rem 0.75rem;
-    align-items: baseline;
-    padding: 0.8rem 0.9rem;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    cursor: pointer;
-    color: var(--ink);
-    font-size: 1rem;
-    margin: 0;
-  }
-  .choice:has(input:checked) { border-color: var(--accent); }
   .prefs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
   .prefs-preview { position: sticky; top: 4.5rem; }
   .preview-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 0.4rem; }
@@ -113,47 +99,50 @@
     }
     .preview { max-height: 34dvh; padding: 1rem; box-shadow: none; }
   }
-  .choice .sample { grid-column: 2; color: var(--muted); font-size: 1.05rem; line-height: 1.45; }
 </style>
 
 <script type="module">
 import {
   api,
   deviceSettingsForm,
-  el,
   fontFaceCss,
+  fontStack,
   loadDeviceSettings,
   mountChrome,
   READER_FONTS,
   READER_THEMES,
+  readerFontForm,
   resolveTheme,
   showMessage,
 } from "/app.js";
 
 await mountChrome();
 
-const SAMPLE = "Il1 O0 rn m — the quick brown fox jumps over the lazy dog.";
-const fieldset = document.getElementById("fonts");
-
-// Load each font's faces on this page too, so the sample shows the real thing.
+// Load each reader font's faces on this page too, so the samples and the
+// preview show the real thing.
 const style = document.createElement("style");
 style.textContent = Object.keys(READER_FONTS).map(fontFaceCss).join("\n");
 document.head.append(style);
 
-// The preview shows the device settings in the account's chosen font, so what
-// you see here is what a book page will look like.
+// The preview draws a book page with the account's font and this device's
+// settings, so what you see here is what the reader will show.
 let accountFont = "publisher";
 let device = loadDeviceSettings();
 function renderPreview() {
   const t = READER_THEMES[resolveTheme(device.theme)];
-  const font = READER_FONTS[accountFont];
-  const page = document.querySelector("#preview .page");
-  Object.assign(document.getElementById("preview").style, { background: t.bg, color: t.fg, borderColor: t.line });
+  const preview = document.getElementById("preview");
+  const page = preview.querySelector(".page");
+  Object.assign(preview.style, {
+    background: t.bg,
+    color: t.fg,
+    borderColor: t.line,
+    padding: `${device.marginV}px ${device.marginH}px`,
+  });
   Object.assign(page.style, {
     fontSize: `${device.fontSize}px`,
     lineHeight: String(device.lineHeight),
     maxWidth: `${device.lineLength}ch`,
-    fontFamily: font.family ? `"${font.family}", system-ui, sans-serif` : "",
+    fontFamily: fontStack(accountFont),
   });
   page.querySelector("a").style.color = t.link;
 }
@@ -170,39 +159,20 @@ try {
   const prefs = await api("/api/preferences");
   accountFont = prefs.reader_font;
   renderPreview();
-  fieldset.replaceChildren(
-    ...Object.entries(READER_FONTS).map(([key, font]) =>
-      el(
-        "label",
-        { class: "choice" },
-        el("input", { type: "radio", name: "reader_font", value: key, checked: prefs.reader_font === key }),
-        el("span", { text: font.label }),
-        el("span", {
-          class: "sample",
-          style: font.family ? `font-family: "${font.family}", system-ui, sans-serif` : "",
-          text: font.family ? SAMPLE : "Whatever the publisher chose, or your browser's default.",
-        }),
-      ),
+  document.getElementById("fonts").replaceChildren(
+    readerFontForm(
+      accountFont,
+      (font) => {
+        accountFont = font;
+        renderPreview();
+        showMessage("msg", "Saved. Books you open from now on use this font.", "ok");
+      },
+      (message) => showMessage("msg", message),
     ),
   );
-  fieldset.disabled = false;
 } catch (error) {
   showMessage("msg", error.message);
 }
-
-fieldset.addEventListener("change", async (event) => {
-  fieldset.disabled = true;
-  try {
-    await api("/api/preferences", { method: "PATCH", body: JSON.stringify({ reader_font: event.target.value }) });
-    accountFont = event.target.value;
-    renderPreview();
-    showMessage("msg", "Saved. Books you open from now on use this font.", "ok");
-  } catch (error) {
-    showMessage("msg", error.message);
-  } finally {
-    fieldset.disabled = false;
-  }
-});
 </script>
 </body>
 </html>
