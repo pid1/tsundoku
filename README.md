@@ -7,7 +7,6 @@
 </p>
 
 <p align="center">
-  <a href="https://pid1.github.io/tsundoku/">Website</a> •
   <a href="USAGE.md">Usage</a> •
   <a href="PLAN.md">Design</a> •
   <a href="docs/security.md">Security</a>

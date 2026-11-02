@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## Homepage
+
+The README is tsundoku's homepage and its documentation. The repository's GitHub "website" field points at it (https://github.com/pid1/tsundoku#readme). There is no GitHub Pages site or separate landing page, and none should be added. Detail goes in USAGE.md, PLAN.md and docs/security.md, which the README links to.
+
+- When a change adds, removes or renames a feature, a reader, an address, a requirement or a setting, update the README and USAGE.md in the same PR. public/help.html repeats the reader setup, so update it too when the catalog address, the sync settings or the reader instructions change.
+- Screenshots in docs/screenshots/ are used by the README and USAGE.md. When the UI changes visibly, retake them or say in the PR that they need it. Never edit an image to fake a UI it doesn't show, and never show a copyrighted book. Take them from a fresh local instance (`wrangler dev --persist-to` a new folder) holding only public-domain books from Standard Ebooks, with demo sync positions pushed through kosync. Capture with Playwright at 2x: desktop at 1440x900, downscaled to 2000px wide, and phone at 390x844. Shots full of cover art are JPEG and the rest PNG. Keep the file names.
+
 ## Sadr
 
 ### Build and test
