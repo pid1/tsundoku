@@ -123,7 +123,7 @@ ul.principles li { color: var(--muted); }
 ul.principles strong { color: var(--ink); }
 details { margin: 0 0 1rem; }
 h3.shots { font-size: 1.05rem; margin: 2rem 0 1rem; }
-.phones { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.1rem; margin: 0 0 2rem; }
+.phones { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.1rem; margin: 0 0 2rem; }
 .phones figure { margin: 0; }
 .phones img { border-radius: 18px; }
 @media (max-width: 640px) { .phones { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -258,11 +258,6 @@ details summary { cursor: pointer; color: var(--accent); margin-bottom: .75rem; 
 
     <h3 class="shots">On a laptop</h3>
     <figure>
-      <img src="screenshots/home-desktop.jpg" width="2000" height="1250" loading="lazy" decoding="async"
-           alt="Home: a bar to resume Moby Dick from the Kindle, the books being read with each one's latest device, and the most recently added covers.">
-      <figcaption>Home: one tap to pick up where any device left off, what you're reading, and what's new.</figcaption>
-    </figure>
-    <figure>
       <img src="screenshots/library-desktop.jpg" width="2000" height="1250" loading="lazy" decoding="async"
            alt="The library: a grid of book covers with search, sorting and paging.">
       <figcaption>The library: covers, metadata and search, read out of the files on upload.</figcaption>
@@ -279,8 +274,8 @@ details summary { cursor: pointer; color: var(--accent); margin-bottom: .75rem; 
     </figure>
     <figure>
       <img src="screenshots/sync-desktop.png" width="2000" height="1250" loading="lazy" decoding="async"
-           alt="Reading sync on the Admin page: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are.">
-      <figcaption>Reading sync on the Admin page: every device's position on every book, and whether they agree.</figcaption>
+           alt="The Sync page: reading positions grouped by book, each listing its devices with how far through each one is and how far behind the others are.">
+      <figcaption>Sync: every device's position on every book, and whether they agree.</figcaption>
     </figure>
     <figure>
       <img src="screenshots/admin-desktop.png" width="2000" height="1250" loading="lazy" decoding="async"
@@ -291,13 +286,8 @@ details summary { cursor: pointer; color: var(--accent); margin-bottom: .75rem; 
     <h3 class="shots">On a phone</h3>
     <div class="phones">
       <figure>
-        <img src="screenshots/home-mobile.jpg" width="780" height="1688" loading="lazy" decoding="async"
-             alt="Home on a phone: the resume bar, the books being read, and the Home, Library and Account tab bar.">
-        <figcaption>Home</figcaption>
-      </figure>
-      <figure>
         <img src="screenshots/library-mobile.jpg" width="780" height="1688" loading="lazy" decoding="async"
-             alt="The library on a phone: two columns of book covers above the tab bar.">
+             alt="The library on a phone: two columns of book covers.">
         <figcaption>The library</figcaption>
       </figure>
       <figure>
