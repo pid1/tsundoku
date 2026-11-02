@@ -7,16 +7,22 @@
 The demo library is public-domain books from [Standard Ebooks](https://standardebooks.org).
 
 <p align="center">
+  <img src="docs/screenshots/home-desktop.jpg" alt="Home on a laptop: a bar to resume Moby Dick from the Kindle, the books being read with each one's latest device, and the most recently added covers" width="100%">
+  <br><em>Home: one tap to pick up where any device left off, what you're reading, and what's new.</em>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/reader-desktop.png" alt="The web reader on a laptop: Pride and Prejudice, Chapter 1, in two columns" width="100%">
   <br><em>The web reader on a laptop: two columns, in Atkinson Hyperlegible Next.</em>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/library-mobile.jpg" alt="The library on a phone: two columns of book covers" width="24%">
-  <img src="docs/screenshots/reader-mobile.png" alt="The web reader on a phone in the light theme" width="24%">
-  <img src="docs/screenshots/reader-mobile-dark.png" alt="The web reader on a phone in the dark theme" width="24%">
-  <img src="docs/screenshots/settings-mobile.png" alt="The reader's Aa panel on a phone: font, theme, text size and spacing" width="24%">
-  <br><em>On a phone: the library, the reader in light and dark, and the Aa panel.</em>
+  <img src="docs/screenshots/home-mobile.jpg" alt="Home on a phone: the resume bar, the books being read, and the Home, Library and Account tab bar" width="19%">
+  <img src="docs/screenshots/library-mobile.jpg" alt="The library on a phone: two columns of book covers above the tab bar" width="19%">
+  <img src="docs/screenshots/reader-mobile.png" alt="The web reader on a phone in the light theme" width="19%">
+  <img src="docs/screenshots/reader-mobile-dark.png" alt="The web reader on a phone in the dark theme" width="19%">
+  <img src="docs/screenshots/settings-mobile.png" alt="The reader's Aa panel on a phone: font, theme, text size and spacing" width="19%">
+  <br><em>On a phone: Home, the library, the reader in light and dark, and the Aa panel.</em>
 </p>
 
 <p align="center">
@@ -25,8 +31,8 @@ The demo library is public-domain books from [Standard Ebooks](https://standarde
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/sync-desktop.png" alt="The Sync page: reading positions grouped by book, each listing its devices, how far through each is and how far behind the others" width="100%">
-  <br><em>Sync: every device's position on every book, and whether they agree.</em>
+  <img src="docs/screenshots/sync-desktop.png" alt="Reading sync on the Admin page: reading positions grouped by book, each listing its devices, how far through each is and how far behind the others" width="100%">
+  <br><em>Reading sync on the Admin page: every device's position on every book, and whether they agree.</em>
 </p>
 
 <p align="center">
