@@ -107,4 +107,8 @@ export interface ProgressRow {
   device_id: string;
   metadata: string | null;
   updated_at: number;
+  /** "type:digest,..." as held by whoever wrote `progress`; null until one names any. */
+  identifiers: string | null;
+  /** The `progress` string that list was written against. See src/sync/identifiers.ts. */
+  identifiers_for: string | null;
 }
