@@ -27,7 +27,7 @@
       <button type="submit" id="submit" style="width:100%">Sign in</button>
     </form>
 
-    <p class="muted" style="font-size:0.8rem;margin-bottom:0">
+    <p class="muted" style="font-size:var(--text-xs);margin-bottom:0">
       Accounts are created by the administrator. Reader setup is on the
       <a href="/help.html">help page</a>.
     </p>
@@ -47,7 +47,7 @@ api("/api/me", { redirectOn401: false }).then(() => { location.href = next(); })
 
 function next() {
   const target = new URLSearchParams(location.search).get("next");
-  return target && target.startsWith("/") ? target : "/library.html";
+  return target && target.startsWith("/") && !target.startsWith("//") ? target : "/home.html";
 }
 
 form.addEventListener("submit", async (event) => {

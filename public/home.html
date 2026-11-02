@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home - tsundoku</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<main>
+  <div class="page-head"><h1>Home</h1></div>
+  <div id="msg" class="msg" hidden></div>
+
+  <div id="resume"></div>
+
+  <section aria-labelledby="reading-h" id="reading" hidden>
+    <h2 id="reading-h">Currently reading</h2>
+    <ul class="reading-list" id="reading-list"></ul>
+  </section>
+
+  <section aria-labelledby="added-h" id="added" hidden>
+    <div class="section-head">
+      <h2 id="added-h">Recently added</h2>
+      <a href="/library.html">All books</a>
+    </div>
+    <ul class="shelf" id="shelf"></ul>
+  </section>
+</main>
+
+<script type="module">
+import { api, el, icon, mountChrome, readerHref, showMessage } from "/app.js";
+import { mountUpload, uploadButton } from "/upload-dialog.js";
+
+const user = await mountChrome();
+
+const upload = uploadButton({ secondary: true });
+document.querySelector(".page-head").append(upload);
+mountUpload(upload, { onAdded: () => load() });
+
+const percent = new Intl.NumberFormat(undefined, { style: "percent" });
+
+// The reader keeps these in localStorage (reader.js). Either may be missing:
+// a new browser, a private window, or storage that throws.
+function stored(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key));
+  } catch {
+    return null;
+  }
+}
+
+const coverStyle = (book) =>
+  book?.cover_key ? `background-image:url('/covers/${book.cover_key.replace(/^covers\//, "")}')` : "";
+
+function cover(book, title) {
+  const node = el("span", { class: "mini-cover", style: coverStyle(book), "aria-hidden": "true" });
+  if (!book?.cover_key) node.textContent = title.slice(0, 1);
+  return node;
+}
+
+function relative(seconds) {
+  const delta = Math.floor(Date.now() / 1000) - seconds;
+  if (delta < 3600) return "just now";
+  if (delta < 86400) return `${Math.floor(delta / 3600)} hr ago`;
+  if (delta < 172800) return "yesterday";
+  return `${Math.floor(delta / 86400)} days ago`;
+}
+
+/** The book's most recent position, from any device, labelled for this browser. */
+function latestDevice(entry, here) {
+  const device = [...entry.devices].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  return { ...device, label: device.deviceId === here ? "this device" : device.device };
+}
+
+async function load() {
+  showMessage("msg", "");
+  const here = stored("tsundoku.deviceId");
+  const last = stored("tsundoku.lastRead");
+
+  const [sync, recent, lastBook] = await Promise.all([
+    // An administrator's default view is everyone; Home is only ever yours.
+    api(`/api/sync?user=${encodeURIComponent(user.userId)}`).catch(() => ({ books: [] })),
+    api("/api/books?sort=added").catch((error) => { showMessage("msg", error.message); return { items: [] }; }),
+    last?.id ? api(`/api/books/${encodeURIComponent(last.id)}`).catch(() => null) : null,
+  ]);
+
+  // Currently reading: books with a position anywhere, newest first, plus the
+  // one last read here if it never synced (no document hash yet).
+  const reading = sync.books
+    .filter((entry) => entry.bookId && entry.userId === user.userId)
+    .sort((a, b) => b.latestUpdatedAt - a.latestUpdatedAt)
+    .slice(0, 5)
+    .map((entry) => {
+      const device = latestDevice(entry, here);
+      return { id: entry.bookId, title: entry.title, fraction: device.percentage, where: device.label, at: device.updatedAt };
+    });
+  if (lastBook && !reading.some((r) => r.id === lastBook.id)) {
+    reading.unshift({ id: lastBook.id, title: lastBook.title, fraction: last.fraction, where: "this device", at: Math.floor(last.at / 1000) });
+  }
+  const books = new Map(
+    (await Promise.all(reading.map((r) => (r.id === lastBook?.id ? lastBook : api(`/api/books/${encodeURIComponent(r.id)}`).catch(() => null)))))
+      .filter(Boolean)
+      .map((b) => [b.id, b]),
+  );
+
+  renderResume(lastBook ? { id: lastBook.id, title: lastBook.title, fraction: last.fraction, here: true } : reading[0]);
+  renderReading(reading, books);
+  renderShelf(recent.items.slice(0, 8));
+}
+
+function renderResume(target) {
+  const slot = document.getElementById("resume");
+  if (!target) {
+    slot.replaceChildren(
+      el(
+        "div",
+        { class: "resume empty" },
+        el("p", { class: "resume-title", text: "Nothing open yet" }),
+        el("p", { class: "muted", text: "Books you read show up here, ready to pick up in one tap." }),
+        el("a", { class: "button", href: "/library.html", text: "Browse the library" }),
+      ),
+    );
+    return;
+  }
+  const eyebrow = target.here ? "Resume on this device" : `Continue from ${target.where}`;
+  slot.replaceChildren(
+    el(
+      "a",
+      { class: "resume", href: readerHref({ id: target.id }) },
+      icon("play", 28),
+      el(
+        "span",
+        { class: "resume-text" },
+        el("span", { class: "resume-eyebrow", text: eyebrow }),
+        el("span", { class: "resume-title", text: `${target.title} · ${percent.format(target.fraction ?? 0)}` }),
+      ),
+    ),
+  );
+}
+
+function renderReading(reading, books) {
+  const section = document.getElementById("reading");
+  section.hidden = reading.length === 0;
+  document.getElementById("reading-list").replaceChildren(
+    ...reading.map((r) =>
+      el(
+        "li",
+        {},
+        el(
+          "a",
+          { href: readerHref({ id: r.id }) },
+          cover(books.get(r.id), r.title),
+          el(
+            "span",
+            { class: "reading-text" },
+            el("strong", { text: r.title }),
+            el("span", { class: "muted", text: `${percent.format(r.fraction ?? 0)} · ${r.where} · ${relative(r.at)}` }),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+function renderShelf(items) {
+  const section = document.getElementById("added");
+  section.hidden = items.length === 0;
+  document.getElementById("shelf").replaceChildren(
+    ...items.map((book) => {
+      const link = el("a", { href: readerHref(book), class: "cover", style: coverStyle(book) });
+      if (!book.cover_key) link.textContent = book.title;
+      else link.append(el("span", { class: "visually-hidden", text: book.title }));
+      return el("li", {}, link);
+    }),
+  );
+}
+
+await load();
+</script>
+</body>
+</html>

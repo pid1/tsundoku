@@ -8,17 +8,6 @@
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 </head>
 <body>
-<header class="top">
-  <a class="brand" href="/library.html">tsundoku</a>
-  <nav>
-    <a href="/library.html">Library</a>
-    <a href="/sync.html">Sync</a>
-    <a href="/upload.html">Upload</a>
-    <a href="/preferences.html">Preferences</a>
-    <a href="/help.html">Help</a>
-  </nav>
-</header>
-
 <main>
   <h1>Connecting a reader</h1>
   <p class="muted">
@@ -70,5 +59,12 @@
 curl -u you:secret https://books.example.com/opds/2.0/new
 curl https://books.example.com/healthcheck</pre>
 </main>
+
+<script type="module">
+import { mountChrome } from "/app.js";
+
+// Help is linked from the sign-in page, so a signed-out visitor may read it.
+await mountChrome({ optional: true });
+</script>
 </body>
 </html>

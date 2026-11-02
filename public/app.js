@@ -93,38 +93,183 @@ export function showMessage(id, text, kind = "error") {
   node.hidden = !text;
 }
 
-export function markCurrentNav() {
-  // The asset router serves these pages extensionless: a request for
-  // /library.html is redirected to /library. So `location.pathname` never
-  // equals the ".html" href in the markup, and comparing them raw meant the
-  // current page was never marked. Strip the extension from both sides.
-  const strip = (path) => path.replace(/\.html$/, "");
-  const here = strip(location.pathname);
-  for (const link of document.querySelectorAll("header.top nav a")) {
-    const href = link.getAttribute("href");
-    if (href && href.startsWith("/") && strip(href) === here) link.setAttribute("aria-current", "page");
-  }
+/* ------------------------------------------------------------------------ */
+/* Page chrome: header, account menu and phone tab bar                       */
+/* ------------------------------------------------------------------------ */
+
+// The one place navigation is written down. Pages used to carry their own
+// copy, and they drifted: Help's lacked Admin and Sign out. AGENTS.md "Design
+// system" describes the layout.
+const MAIN_NAV = [
+  { href: "/home.html", label: "Home", icon: "home" },
+  { href: "/library.html", label: "Library", icon: "library" },
+];
+const ACCOUNT_NAV = [
+  { href: "/preferences.html", label: "Preferences" },
+  { href: "/admin.html", label: "Admin and sync", adminOnly: true },
+  { href: "/help.html", label: "Help" },
+];
+
+const ICONS = {
+  home: "M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
+  library: "M4 4h4v16H4zM10 4h4v16h-4zM16 5l3.5-1 2.5 15.5-3.5 1z",
+  account: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6",
+  chevron: "m6 9 6 6 6-6",
+  upload: "M12 16V4M6 10l6-6 6 6M4 20h16",
+  play: "M7 4v16l13-8z",
+};
+const FILLED = new Set(["play"]);
+
+/** An inline icon. Decorative: the control beside it carries the label. */
+export function icon(name, size = 20) {
+  const filled = FILLED.has(name);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  for (const [key, value] of Object.entries({
+    width: size, height: size, viewBox: "0 0 24 24", fill: filled ? "currentColor" : "none", stroke: filled ? "none" : "currentColor",
+    "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true",
+  })) svg.setAttribute(key, String(value));
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", ICONS[name]);
+  svg.append(path);
+  return svg;
 }
 
-export async function mountChrome() {
-  markCurrentNav();
-  const user = await requireUser();
-  const slot = document.getElementById("who");
-  if (slot) {
-    slot.textContent = user.display_name || user.username;
+// The asset router serves these pages extensionless: a request for
+// /library.html is redirected to /library. So `location.pathname` never
+// equals the ".html" href, and comparing them raw meant the current page was
+// never marked. Strip the extension from both sides.
+const stripHtml = (path) => path.replace(/\.html$/, "");
+const isHere = (href) => stripHtml(href) === stripHtml(location.pathname);
+
+function navLink(item, className) {
+  return el(
+    "a",
+    { href: item.href, class: className, "aria-current": isHere(item.href) ? "page" : null },
+    item.icon && className === "tab" ? icon(item.icon, 24) : null,
+    el("span", { text: item.label }),
+  );
+}
+
+/**
+ * Draws the header and the phone tab bar, then checks the session. With
+ * `{ optional: true }` (Help, which the sign-in page links to) a signed-out
+ * visitor gets a Sign in link instead of being sent away; the result is then
+ * the user or null.
+ */
+export async function mountChrome({ optional = false } = {}) {
+  const main = document.querySelector("main");
+  if (main && !main.id) main.id = "main";
+  if (main) main.tabIndex = -1;
+
+  const header = el(
+    "header",
+    { class: "site" },
+    el("a", { class: "brand", href: "/home.html", text: "tsundoku" }),
+    el("nav", { class: "primary", "aria-label": "Main" }, MAIN_NAV.map((item) => navLink(item, "primary-link"))),
+    el("div", { class: "account", id: "account" }),
+  );
+  document.body.prepend(el("a", { class: "skip", href: "#main", text: "Skip to content" }), header);
+
+  let user;
+  if (optional) {
+    user = await api("/api/me", { redirectOn401: false }).then((r) => r.user).catch(() => null);
+  } else {
+    user = await requireUser();
   }
-  for (const node of document.querySelectorAll("[data-admin-only]")) {
-    if (user.role !== "admin") node.remove();
+
+  if (!user) {
+    header.querySelector("nav.primary").remove();
+    document.getElementById("account").append(
+      el("a", { class: "button secondary", href: `/?next=${encodeURIComponent(location.pathname)}`, text: "Sign in" }),
+    );
+    return null;
   }
-  const signOut = document.getElementById("signout");
-  if (signOut) {
-    signOut.addEventListener("click", async (event) => {
-      event.preventDefault();
-      await api("/api/session", { method: "DELETE" });
-      location.href = "/";
-    });
-  }
+
+  mountAccountMenu(user);
   return user;
+}
+
+function mountAccountMenu(user) {
+  const name = user.display_name || user.username;
+  const menu = el(
+    "div",
+    { class: "account-menu", id: "account-menu", hidden: true },
+    el("p", { class: "account-who" }, "Signed in as ", el("strong", { text: name })),
+    el(
+      "ul",
+      {},
+      ACCOUNT_NAV.filter((item) => !item.adminOnly || user.role === "admin").map((item) =>
+        el("li", {}, navLink(item, "menu-link")),
+      ),
+    ),
+    el("button", { type: "button", class: "menu-link danger-link", text: "Sign out", onclick: signOut }),
+  );
+
+  // Two buttons open the one menu: the header's on a wide screen, the tab
+  // bar's on a phone. CSS shows exactly one of them.
+  const headerButton = el(
+    "button",
+    { type: "button", class: "account-button", "aria-expanded": "false", "aria-controls": "account-menu" },
+    el("span", { class: "avatar", "aria-hidden": "true", text: name.slice(0, 1).toUpperCase() }),
+    el("span", { class: "account-name", text: name }),
+    icon("chevron", 16),
+  );
+  const accountHere = ACCOUNT_NAV.some((item) => isHere(item.href));
+  const tabButton = el(
+    "button",
+    { type: "button", class: "tab", "aria-expanded": "false", "aria-controls": "account-menu", "data-current": accountHere ? "" : null },
+    icon("account", 24),
+    el("span", { text: "Account" }),
+  );
+  const tabbar = el(
+    "nav",
+    { class: "tabbar", "aria-label": "Main" },
+    MAIN_NAV.map((item) => navLink(item, "tab")),
+    tabButton,
+  );
+
+  document.getElementById("account").append(headerButton, menu);
+  document.body.append(tabbar);
+  document.body.classList.add("has-tabbar");
+
+  let opener = null;
+  const setOpen = (open, from) => {
+    menu.hidden = !open;
+    for (const button of [headerButton, tabButton]) button.setAttribute("aria-expanded", String(open && button === from));
+    if (open) {
+      opener = from;
+      menu.querySelector("a, button")?.focus();
+    } else if (opener) {
+      opener.focus();
+      opener = null;
+    }
+  };
+  for (const button of [headerButton, tabButton]) {
+    button.addEventListener("click", () => setOpen(menu.hidden, button));
+  }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !menu.hidden) setOpen(false);
+  });
+  document.addEventListener("click", (event) => {
+    if (menu.hidden || menu.contains(event.target)) return;
+    if (headerButton.contains(event.target) || tabButton.contains(event.target)) return;
+    menu.hidden = true;
+    for (const button of [headerButton, tabButton]) button.setAttribute("aria-expanded", "false");
+    opener = null;
+  });
+  // Tabbing out of the menu closes it, so it never sits open behind the page.
+  menu.addEventListener("focusout", (event) => {
+    if (event.relatedTarget && !menu.contains(event.relatedTarget) && event.relatedTarget !== opener) {
+      menu.hidden = true;
+      for (const button of [headerButton, tabButton]) button.setAttribute("aria-expanded", "false");
+      opener = null;
+    }
+  });
+}
+
+async function signOut() {
+  await api("/api/session", { method: "DELETE" });
+  location.href = "/";
 }
 
 /**

@@ -373,6 +373,9 @@ async function main() {
     const progress = progressFor(book.format, index, detail.range);
     if (!moved) return;
     store.set(localKey, { cfi: detail.cfi, progress });
+    // What Home offers to resume on this device. Only after a real page turn,
+    // so opening a book by mistake does not replace it.
+    store.set("tsundoku.lastRead", { id: book.id, title: book.title, fraction, at: Date.now() });
     if (!syncing || !progress || progress === lastPushed) return;
     pending = { percentage: fraction, progress, device: deviceName(), device_id: deviceId() };
     clearTimeout(timer);
