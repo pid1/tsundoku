@@ -23,7 +23,7 @@ It's built for a household, not the public. Every page but the sign-in page need
 
 ## From upload to reading
 
-1. You drag a book onto the upload page. The title, authors and cover are read out of the file.
+1. You drag a book onto the home page or the library. The title, authors and cover are read out of the file.
 2. Your e-reader finds it in the catalog and downloads it.
 3. KOReader saves your place to tsundoku as you read.
 4. You open the same book on your phone, in the browser, at the same paragraph.
@@ -33,7 +33,8 @@ It's built for a household, not the public. Every page but the sign-in page need
 - Serves an OPDS 2.0 catalog to KOReader, CrossPoint, Thorium and any other reader that speaks OPDS 2.0.
 - Reads metadata and covers out of EPUB and CBZ files on upload, without downloading them.
 - Syncs reading positions between devices with KOReader's own kosync protocol.
-- Shows every device's position on every book, and whether they agree.
+- Shows administrators every device's position on every book, and whether they agree.
+- Opens to a home page that resumes the book you last read on this device in one tap, and lists what you're reading on your other devices.
 - Opens EPUB, CBZ, MOBI, AZW3 and FB2 in the browser, and syncs that position with KOReader too. Opening a book never overwrites your e-reader's place; only turning a page saves.
 - Sets books in the publisher's fonts or Atkinson Hyperlegible Next, a choice saved to your account.
 - Lets each device choose its own light or dark theme, text size, line spacing, line length (up to full width), one or two columns, top-and-bottom and side margins, and whether to show the status bar. Change them while reading from the **Aa** button, or on the Preferences page with a live preview.

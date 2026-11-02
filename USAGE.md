@@ -90,14 +90,14 @@ curl -u you:secret https://books.example.com/opds/2.0/new | jq .
 curl https://books.example.com/healthcheck
 ```
 
-## The Sync page
+## Reading sync
 
-The **Sync** page shows every reading position, grouped by book and broken out per device, so you can see whether two devices agree.
+The **Reading sync** section of the **Admin** page shows every reading position, grouped by book and broken out per device, so you can see whether two devices agree.
 
 - Each book lists its devices, furthest first, with how far behind the others are and when each last pushed.
 - A book is **in sync** when its devices are within 0.5% of each other, **out of sync** when they are not, and **one device** when there is nothing to compare. The 0.5% allows for a device that re-renders the page it was handed and reports a slightly different number.
 - Positions for books that are not in the library still appear, titled from the metadata KOReader sends. That's normal for a book you read on a device but never uploaded.
-- Administrators see everyone and can filter by user. **Readers see only their own devices.** A reading position says what someone is reading and how far they have got, which is not something to show other readers.
+- It's on the Admin page because it's a server administrator's tool. Administrators see everyone and can filter by user. Readers see their own books and devices under **Currently reading** on Home. A reading position says what someone is reading and how far they have got, which is not something to show other readers.
 
 kosync keeps one position per account per book, and the last device to push wins, so on its own it cannot say where each device is. The per-device positions are kept beside it in `progress_devices` (migration `0003`). The kosync routes are unchanged and still answer from `progress`.
 
@@ -105,7 +105,7 @@ kosync keeps one position per account per book, and the last device to push wins
 
 Click a book's cover or title to read it in the browser. EPUB, CBZ, MOBI, AZW3 and FB2 open there. Anything else downloads instead. Each card's **Edit** button opens the metadata editor, which is also where the download link is.
 
-- **It syncs with KOReader.** The web reader is one more kosync device. It saves to the same tables under the same document hash, in KOReader's own position format: an XPointer for EPUB and a page number for CBZ. Each browser shows on the Sync page as its own device, such as "Web reader (iPhone)". MOBI, AZW3 and FB2 positions stay in the browser, because KOReader could not read them back.
+- **It syncs with KOReader.** The web reader is one more kosync device. It saves to the same tables under the same document hash, in KOReader's own position format: an XPointer for EPUB and a page number for CBZ. Each browser shows in Reading sync as its own device, such as "Web reader (iPhone)". MOBI, AZW3 and FB2 positions stay in the browser, because KOReader could not read them back.
 - **Positions are close, not exact.** KOReader's page structure is not the browser's, so a position carried from one to the other lands on the right paragraph and usually the right word. [`public/xpointer.js`](public/xpointer.js) explains why.
 - **Opening a book never saves a position.** Only turning a page does. Otherwise just looking at a book on your phone would overwrite your e-reader's exact position with an approximation of it.
 - **The font** is set on the **Preferences** page and saved to your account: the book's own fonts, or Atkinson Hyperlegible Next. The font files are served from `public/fonts` under the SIL Open Font License.
@@ -139,7 +139,7 @@ Figures read from Cloudflare's docs on 2026-09-18. Check them again before relyi
 
 **Uploading the same file twice returns 409.** Duplicates are detected with R2's own MD5 checksum. Uploads over 95 MB go up in parts, which have no whole-file checksum, so they skip the check.
 
-**A device's position doesn't reach the others.** Check that every device signs in with the same account and has the same copy of the book. The Sync page shows positions per account and per file, which usually makes the mismatch obvious.
+**A device's position doesn't reach the others.** Check that every device signs in with the same account and has the same copy of the book. The Reading sync section of the Admin page shows positions per account and per file, which usually makes the mismatch obvious.
 
 ## Layout
 
