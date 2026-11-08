@@ -42,7 +42,7 @@ It's built for a household, not the public. Every page but the sign-in page need
 
 ## Install
 
-You need Node 24 with npm 11.10 or later, and a Cloudflare account. Pick one.
+You need Node 26 with npm 11.10 or later, and a Cloudflare account. Pick one.
 
 1. **The setup script.** It creates the bucket and the database, applies the migrations, sets the secrets and generates an admin password. It's safe to run again.
 

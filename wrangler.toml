@@ -5,7 +5,7 @@
 
 name = "tsundoku"
 main = "src/index.ts"
-compatibility_date = "2026-08-01"
+compatibility_date = "2026-11-01"
 
 # The UI shell is served as static assets. Requests that match a file in
 # ./public are served WITHOUT invoking the Worker, and do not count against the
