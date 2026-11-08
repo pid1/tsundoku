@@ -14,9 +14,12 @@ The README is tsundoku's homepage and its documentation. The repository's GitHub
 - Run the app with `npm run db:migrate:local`, then `npx wrangler dev --port 8787 --ip 127.0.0.1 --var PEPPER:ci-pepper --var SESSION_KEY:ci-session --var ADMIN_USERNAME:ciuser --var ADMIN_PASSWORD:cipassword`. `GET /healthcheck` answers `{"state":"OK"}`. The first authenticated request seeds the admin account.
 - The kosync protocol check clones https://github.com/pid1/kosync-conformance and runs its `verify.mjs` against the local Worker, as .github/workflows/kosync-conformance.yml does. Passing is "conformant (every MUST satisfied)".
 - Never run `npm run deploy`, `npm run db:migrate`, `npm run setup` or `npm run db:backup`. They write to the Cloudflare account.
+- vitest.config.ts sets its own `compatibilityDate` for the tests. Keep it equal to `compatibility_date` in wrangler.toml.
+- `npx wrangler deploy --dry-run --outdir <dir>` bundles the Worker without uploading anything. Use it to check the build.
 
 ### Toolchain
 - npm is the only package manager, with package-lock.json. CI installs Node with actions/setup-node and runs `npm ci`.
+- pid1/kosync-conformance has no release tags, so kosync-conformance.yml clones its default branch.
 
 ### Design system
 The web UI (everything in public/ except the reader's page area) follows these rules. The tokens live at the top of public/app.css; components use the tokens and never a raw hex value. If you change a colour, re-measure its contrast and update this table in the same commit.
@@ -46,3 +49,4 @@ The web UI (everything in public/ except the reader's page area) follows these r
 
 ### Deploys outside CI
 - Cloudflare Workers Builds deploys the Worker on every push to main, with build command `./build.sh` and deploy command `npx wrangler deploy` (wrangler.toml). .github/workflows/cf-fallback.yml deploys only when the live `/.build-id` does not match the pushed commit.
+- Workers Builds installs from package-lock.json with its default npm 10.9.2 and Node 24.22.1, because package.json sets no `packageManager` and the repo has no .node-version. npm 10 ignores `min-release-age` in .npmrc.
