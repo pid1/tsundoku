@@ -12,7 +12,7 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       miniflare: {
-        compatibilityDate: "2026-08-01",
+        compatibilityDate: "2026-11-01",
         d1Databases: ["DB"],
         r2Buckets: ["BOOKS"],
         bindings: {
